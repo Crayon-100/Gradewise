@@ -118,9 +118,13 @@ class RecommendRequest(BaseModel):
         min_length=5,
         max_length=500,
     )
-    diameter_mm: float = Field(
+    shape: str = Field(
+        default="round",
+        description="Shape of the rod (round or square)",
+    )
+    dimension_mm: float = Field(
         default=20.0,
-        description="Rod outer diameter in millimetres.",
+        description="Rod outer diameter (or side for square) in millimetres.",
         ge=1.0,
         le=200.0,
     )
@@ -130,7 +134,6 @@ class RecommendRequest(BaseModel):
         ge=50.0,
         le=10_000.0,
     )
-
 
 class PhysicsNumbers(BaseModel):
     """All numbers come from calculations.py — the AI never produces these."""
@@ -180,7 +183,8 @@ class GradeRecommendation(BaseModel):
 
 class RecommendResponse(BaseModel):
     user_need: str
-    diameter_mm: float
+    shape: str
+    dimension_mm: float
     length_mm: float
     recommendations: list[GradeRecommendation]
 
@@ -220,7 +224,7 @@ _GEMINI_RESPONSE_SCHEMA = {
 }
 
 
-def _build_prompt(user_need: str, diameter_mm: float, length_mm: float) -> str:
+def _build_prompt(user_need: str, shape: str, dimension_mm: float, length_mm: float) -> str:
     """
     Build the Gemini prompt. Embedding the full grades.json ensures the model
     reasons only from real data and cannot hallucinate grades or properties.
@@ -242,7 +246,8 @@ USER NEED
 
 ROD DIMENSIONS (for context only — do NOT calculate any numbers yourself)
 -----------------------------------
-Diameter: {diameter_mm} mm
+Shape: {shape}
+Dimension: {dimension_mm} mm
 Length:   {length_mm} mm
 
 RULES (strictly enforced)
@@ -325,7 +330,7 @@ def recommend(req: RecommendRequest):
     """
 
     # Step 1 & 2: Ask Gemini to shortlist grades (text only, no numbers)
-    prompt = _build_prompt(req.user_need, req.diameter_mm, req.length_mm)
+    prompt = _build_prompt(req.user_need, req.shape, req.dimension_mm, req.length_mm)
 
     try:
         ai_response = _gemini_client.models.generate_content(
@@ -374,9 +379,12 @@ def recommend(req: RecommendRequest):
             continue
 
         # Run the deterministic physics engine — AI never touches these numbers
+        # (For now, the backend engine still assumes circular math for the initial baseline.
+        # The frontend will overwrite this with the live interactive client-side calculator
+        # which fully supports square/round toggle!)
         rod = calc_rod_properties(
             grade_data=grade_data,
-            diameter_mm=req.diameter_mm,
+            diameter_mm=req.dimension_mm,
             length_mm=req.length_mm,
         )
 
@@ -434,7 +442,8 @@ def recommend(req: RecommendRequest):
 
     return RecommendResponse(
         user_need=req.user_need,
-        diameter_mm=req.diameter_mm,
+        shape=req.shape,
+        dimension_mm=req.dimension_mm,
         length_mm=req.length_mm,
         recommendations=recommendations,
     )
