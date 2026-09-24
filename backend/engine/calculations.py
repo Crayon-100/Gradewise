@@ -29,17 +29,41 @@ from dataclasses import dataclass
 
 @dataclass
 class TensileResult:
-    """Output of calc_tensile_failure()"""
-    cross_section_area_mm2: float   # π d² / 4  [mm²]
-    max_load_n: float               # force that causes fracture [N]
-    max_load_kg: float              # same, expressed as equivalent hanging mass [kg]
+    """
+    Full three-stage tensile profile for the hanging-weight visual.
+
+    Stage 1 — Elastic zone (spring-like):
+        The rod stretches proportionally to load.  Remove the load and it
+        springs back.  Ends when stress reaches yield strength (sigma_y).
+
+    Stage 2 — Plastic zone (permanent stretch / necking):
+        Beyond yield the rod keeps stretching but no longer returns to its
+        original shape.  It continues until stress reaches the ultimate
+        tensile strength (sigma_u).
+
+    Stage 3 — Fracture:
+        The rod snaps.  The total elongation at this moment is given by
+        elongation_pct from grades.json (a standard ASTM tensile-test value).
+    """
+    # Geometry
+    cross_section_area_mm2: float   # A = pi * d^2 / 4   [mm^2]
+
+    # Stage 1: elastic limit (yield point)
+    yield_load_n: float             # F_y = sigma_y * A  [N]  — end of elastic zone
+    yield_load_kg: float            # same, as hanging mass  [kg]
+    elastic_stretch_mm: float       # delta_y = sigma_y * L / E  [mm]  Hooke's Law
+
+    # Stage 3: fracture
+    fracture_load_n: float          # F_u = sigma_u * A  [N]  — rod snaps here
+    fracture_load_kg: float         # same, as hanging mass  [kg]
+    total_elongation_mm: float      # elongation_pct/100 * L  [mm]  from grades.json
 
 
 @dataclass
 class BendingResult:
     """Output of calc_bending_yield()"""
-    second_moment_mm4: float        # I = π d⁴ / 64  [mm⁴]
-    section_modulus_mm3: float      # Z = I / (d/2) = π d³ / 32  [mm³]
+    second_moment_mm4: float        # I = pi * d^4 / 64  [mm^4]
+    section_modulus_mm3: float      # Z = I / (d/2) = pi * d^3 / 32  [mm^3]
     max_mid_load_n: float           # central point-load at first yield [N]
     max_mid_load_kg: float          # same, as equivalent mass [kg]
     deflection_at_yield_mm: float   # mid-span deflection when load = max_mid_load [mm]
@@ -51,7 +75,7 @@ class RodProperties:
     diameter_mm: float
     length_mm: float
     volume_m3: float                # computed rod volume
-    mass_kg: float                  # rod's own weight = volume × density
+    mass_kg: float                  # rod's own weight = volume * density
     tensile: TensileResult
     bending: BendingResult
 
@@ -61,41 +85,87 @@ class RodProperties:
 # ---------------------------------------------------------------------------
 
 def calc_tensile_failure(
+    yield_strength_mpa: float,
     tensile_strength_mpa: float,
+    youngs_modulus_gpa: float,
+    elongation_pct: float,
     diameter_mm: float,
+    length_mm: float,
 ) -> TensileResult:
     """
-    Maximum axial (tensile) load before the rod snaps / fractures.
+    Three-stage axial (tensile) profile for a solid circular rod under
+    a steadily increasing hanging load.
 
-    Formula:  F = σ_u × A
-                = σ_u × (π d² / 4)
+    All three stages feed the frontend animation:
+      - Stage 1 (elastic): rod stretches linearly → springs back if unloaded
+      - Stage 2 (plastic): rod permanently deforms / necks (no formula here;
+                           the frontend animates the transition zone between
+                           elastic_stretch_mm and total_elongation_mm)
+      - Stage 3 (fracture): rod snaps
 
-    σ_u is the ULTIMATE tensile strength (not yield), because this models
-    the 'hanging weight that finally breaks the cable' scenario — i.e. the
-    point of fracture, not just permanent stretch.
+    Formulas
+    --------
+    Cross-sectional area:
+        A = pi * d^2 / 4                                     [mm^2]
+
+    Elastic stretch at yield (Hooke's Law for an axial bar):
+        delta_y = sigma_y * L / E
+                = (yield_strength [N/mm^2] * length [mm]) / E [N/mm^2]
+                                                             [mm]
+        This is how far the rod has lengthened by the time it first
+        yields — still fully recoverable up to this point.
+
+    Yield load (end of elastic zone):
+        F_y = sigma_y * A                                    [N]
+
+    Fracture load (ultimate / snap):
+        F_u = sigma_u * A                                    [N]
+
+    Total elongation at fracture:
+        delta_total = elongation_pct / 100 * L              [mm]
+        elongation_pct is the standard ASTM gauge-length value stored in
+        grades.json — it covers both elastic + plastic stretch combined.
 
     Args:
-        tensile_strength_mpa: Ultimate tensile strength of the grade [MPa].
-        diameter_mm:          Diameter of the solid circular rod [mm].
+        yield_strength_mpa:   Yield strength of the grade [MPa = N/mm^2].
+        tensile_strength_mpa: Ultimate tensile strength [MPa = N/mm^2].
+        youngs_modulus_gpa:   Young's modulus [GPa]. Converted to N/mm^2 internally.
+        elongation_pct:       Total elongation at fracture [%] from grades.json.
+        diameter_mm:          Solid circular rod diameter [mm].
+        length_mm:            Rod length (gauge length for elongation) [mm].
 
     Returns:
-        TensileResult with area, force in N, and equivalent hanging mass in kg.
+        TensileResult with area, all three stage values in N, kg, and mm.
     """
-    # Cross-sectional area  [mm²]
+    # Work in N/mm^2 throughout (1 MPa = 1 N/mm^2, 1 GPa = 1000 N/mm^2)
+    sigma_y = yield_strength_mpa            # N/mm^2
+    sigma_u = tensile_strength_mpa          # N/mm^2
+    E       = youngs_modulus_gpa * 1_000.0  # N/mm^2
+
+    # Cross-sectional area  [mm^2]
     A_mm2 = math.pi * (diameter_mm ** 2) / 4.0
 
-    # Convert area to m² and strength to Pa for SI consistency, then back to N
-    #   1 MPa = 1 N/mm², so we can work entirely in mm-units here:
-    #   F [N] = σ [N/mm²] × A [mm²]
-    F_n = tensile_strength_mpa * A_mm2  # N
+    # --- Stage 1: yield point ---
+    F_yield_n   = sigma_y * A_mm2
+    # Elastic stretch via Hooke's Law:  delta = sigma * L / E
+    # (equivalently delta = F*L/(A*E), same thing since sigma = F/A)
+    elastic_stretch_mm = (sigma_y * length_mm) / E
 
-    g = 9.81  # m/s²  — standard gravity for mass ↔ weight conversion
-    mass_kg = F_n / g
+    # --- Stage 3: fracture ---
+    F_fracture_n = sigma_u * A_mm2
+    # Total elongation at fracture — from the materials data, not AI-generated
+    total_elongation_mm = (elongation_pct / 100.0) * length_mm
+
+    g = 9.81  # m/s^2 standard gravity
 
     return TensileResult(
         cross_section_area_mm2=round(A_mm2, 4),
-        max_load_n=round(F_n, 2),
-        max_load_kg=round(mass_kg, 2),
+        yield_load_n=round(F_yield_n, 2),
+        yield_load_kg=round(F_yield_n / g, 2),
+        elastic_stretch_mm=round(elastic_stretch_mm, 4),
+        fracture_load_n=round(F_fracture_n, 2),
+        fracture_load_kg=round(F_fracture_n / g, 2),
+        total_elongation_mm=round(total_elongation_mm, 2),
     )
 
 
@@ -200,8 +270,12 @@ def calc_rod_properties(
         the rod's own mass.
     """
     tensile_result = calc_tensile_failure(
+        yield_strength_mpa=grade_data["yield_strength_mpa"],
         tensile_strength_mpa=grade_data["tensile_strength_mpa"],
+        youngs_modulus_gpa=grade_data["youngs_modulus_gpa"],
+        elongation_pct=grade_data["elongation_pct"],
         diameter_mm=diameter_mm,
+        length_mm=length_mm,
     )
 
     bending_result = calc_bending_yield(
@@ -212,7 +286,7 @@ def calc_rod_properties(
     )
 
     # Rod's own volume and mass (for 'how heavy is this rod?' display)
-    # Volume of cylinder [m³]:  V = π (d/2)² L   — convert mm → m
+    # Volume of cylinder [m^3]:  V = pi * (d/2)^2 * L  -- convert mm to m
     radius_m = (diameter_mm / 2.0) / 1_000.0
     length_m = length_mm / 1_000.0
     volume_m3 = math.pi * (radius_m ** 2) * length_m
@@ -231,7 +305,7 @@ def calc_rod_properties(
 
 
 # ---------------------------------------------------------------------------
-# Self-test  (python -m backend.engine.calculations  OR  python calculations.py)
+# Self-test  (python backend/engine/calculations.py)
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
@@ -241,11 +315,13 @@ if __name__ == "__main__":
     """
 
     # Minimal grade stubs that mirror the schema in grades.json
+    # elongation_pct added to match the updated three-stage tensile model
     grade_304 = {
         "grade": "304",
         "yield_strength_mpa": 215,
         "tensile_strength_mpa": 505,
         "youngs_modulus_gpa": 193,
+        "elongation_pct": 40,
         "density_kg_m3": 8000,
     }
     grade_316 = {
@@ -253,13 +329,15 @@ if __name__ == "__main__":
         "yield_strength_mpa": 205,
         "tensile_strength_mpa": 515,
         "youngs_modulus_gpa": 193,
+        "elongation_pct": 40,
         "density_kg_m3": 8000,
     }
     grade_2205 = {
-        "grade": "2205",
+        "grade": "2205 (Duplex)",
         "yield_strength_mpa": 450,
         "tensile_strength_mpa": 655,
         "youngs_modulus_gpa": 200,
+        "elongation_pct": 25,
         "density_kg_m3": 7800,
     }
     grade_409 = {
@@ -267,43 +345,44 @@ if __name__ == "__main__":
         "yield_strength_mpa": 170,
         "tensile_strength_mpa": 380,
         "youngs_modulus_gpa": 200,
+        "elongation_pct": 20,
         "density_kg_m3": 7700,
     }
 
     test_cases = [
-        # (description, grade, diameter_mm, length_mm)
-        ("Garden gate railing: 304, 20 mm dia, 1200 mm span",
+        # (description, grade_dict, diameter_mm, length_mm)
+        ("Garden gate railing — 304, 20 mm dia, 1200 mm span",
          grade_304, 20.0, 1200.0),
-
-        ("Coastal railing: 316, 25 mm dia, 1500 mm span",
+        ("Coastal railing — 316, 25 mm dia, 1500 mm span",
          grade_316, 25.0, 1500.0),
-
-        ("Heavy structural bar: 2205 Duplex, 32 mm dia, 2000 mm span",
+        ("Heavy structural bar — 2205 Duplex, 32 mm dia, 2000 mm span",
          grade_2205, 32.0, 2000.0),
-
-        ("Budget exhaust support: 409, 12 mm dia, 800 mm span",
+        ("Budget exhaust support — 409, 12 mm dia, 800 mm span",
          grade_409, 12.0, 800.0),
     ]
 
     for desc, grade, d, L in test_cases:
-        result = calc_rod_properties(grade, d, L)
+        r = calc_rod_properties(grade, d, L)
+        t = r.tensile
+        b = r.bending
 
         print(f"\n{'=' * 65}")
-        print(f"  TEST: {desc}")
+        print(f"  {desc}")
         print(f"{'=' * 65}")
-        print(f"  Grade: {grade['grade']}")
-        print(f"  Diameter:           {result.diameter_mm} mm")
-        print(f"  Length (span):      {result.length_mm} mm")
-        print(f"  Rod mass:           {result.mass_kg} kg")
+        print(f"  Grade:                   {grade['grade']}")
+        print(f"  Diameter / span:         {r.diameter_mm} mm / {r.length_mm} mm")
+        print(f"  Rod self-mass:           {r.mass_kg} kg")
+        print(f"  Cross-section area:      {t.cross_section_area_mm2} mm^2")
         print()
-        print(f"  --- Tensile (hanging-weight / snap) ---")
-        print(f"  Cross-section area: {result.tensile.cross_section_area_mm2} mm^2")
-        print(f"  Max tensile load:   {result.tensile.max_load_n} N")
-        print(f"                   = {result.tensile.max_load_kg} kg equivalent")
+        print(f"  -- TENSILE (hanging-weight) --------------------------")
+        print(f"  Stage 1 | Yield load:    {t.yield_load_n} N = {t.yield_load_kg} kg")
+        print(f"           Elastic stretch:{t.elastic_stretch_mm} mm  (springs back)")
+        print(f"  Stage 2 | Plastic zone:  rod permanently deforms / necks")
+        print(f"  Stage 3 | Fracture load: {t.fracture_load_n} N = {t.fracture_load_kg} kg")
+        print(f"           Total elongat.: {t.total_elongation_mm} mm before snap")
         print()
-        print(f"  --- Bending (see-saw / beam yield) ---")
-        print(f"  Second moment I:    {result.bending.second_moment_mm4} mm^4")
-        print(f"  Section modulus Z:  {result.bending.section_modulus_mm3} mm^3")
-        print(f"  Max mid-span load:  {result.bending.max_mid_load_n} N")
-        print(f"                   = {result.bending.max_mid_load_kg} kg equivalent")
-        print(f"  Deflection at yield:{result.bending.deflection_at_yield_mm} mm")
+        print(f"  -- BENDING (see-saw / beam yield) --------------------")
+        print(f"  Second moment I:         {b.second_moment_mm4} mm^4")
+        print(f"  Section modulus Z:       {b.section_modulus_mm3} mm^3")
+        print(f"  Max mid-span yield load: {b.max_mid_load_n} N = {b.max_mid_load_kg} kg")
+        print(f"  Deflection at yield:     {b.deflection_at_yield_mm} mm")
