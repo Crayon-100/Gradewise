@@ -150,7 +150,7 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
     <div className="flex flex-col gap-3">
 
       {/* ── Environment selector ── */}
-      <div className="flex gap-2">
+      <div className="flex gap-4">
         {ENVIRONMENTS.map((e) => {
           const Icon   = e.icon;
           const active = env === e.id;
@@ -158,15 +158,15 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
             <button
               key={e.id}
               onClick={() => { setEnv(e.id); setYear(0); }}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200"
+              className="flex-1 flex items-center justify-center gap-2 py-3 border transition-all duration-200"
               style={{
-                background: active ? `${e.color}18` : "#1a1a20",
-                border: `1px solid ${active ? e.color : "#2a2a35"}`,
-                color: active ? e.color : "#52525b",
+                background: "transparent",
+                border: active ? "1px solid #ffffff" : "1px solid #262626",
+                color: active ? "#ffffff" : "#666666",
               }}
             >
-              <Icon className="w-3 h-3" />
-              {e.label}
+              <Icon className="w-4 h-4" />
+              <span className="font-mono text-[11px] tracking-[2px] uppercase">{e.label}</span>
             </button>
           );
         })}
@@ -174,8 +174,8 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
 
       {/* ── Surface view ────────────────────────────────────────────── */}
       <div
-        className="relative rounded-xl overflow-hidden"
-        style={{ height: 180, border: "1px solid #2a2a35" }}
+        className="relative overflow-hidden"
+        style={{ height: 180, border: "1px solid #262626" }}
       >
         <svg
           viewBox="0 0 100 100"
@@ -382,11 +382,11 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
       </div>
 
       {/* ── Year scrubber ── */}
-      <div>
-        <div className="flex justify-between text-[9px] mb-1" style={{ color: "#52525b" }}>
-          <span>Year 0</span>
-          <span className="font-bold" style={{ color: "#ea580c" }}>Year {year}</span>
-          <span>Year 30</span>
+      <div className="my-4">
+        <div className="flex justify-between font-mono text-[11px] tracking-[2px] uppercase text-[#666666] mb-2">
+          <span>YEAR 0</span>
+          <span className="text-white">YEAR {year}</span>
+          <span>YEAR 30</span>
         </div>
         <input
           type="range" min={0} max={30} step={1} value={year}
@@ -396,33 +396,32 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
       </div>
 
       {/* ── Metrics grid ── */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-4 border-t border-[#262626]">
         <MetricPill
-          label="Pit Depth"
-          value={pitDepthUm > 999 ? `${pitDepthMm.toFixed(2)} mm` : `${Math.round(pitDepthUm)} µm`}
-          color={damage > 0.6 ? "#ef4444" : "#f59e0b"}
+          label="PIT DEPTH"
+          value={pitDepthUm > 999 ? `${pitDepthMm.toFixed(2)} MM` : `${Math.round(pitDepthUm)} µM`}
+          color={damage > 0.6 ? "#d4a017" : "#cccccc"}
         />
         <MetricPill
-          label="Corr. Rate"
-          value={`${corrRateUmYr.toFixed(1)} µm/yr`}
-          color="#f59e0b"
+          label="CORR. RATE"
+          value={`${corrRateUmYr.toFixed(1)} µM/YR`}
+          color="#cccccc"
         />
         <MetricPill
-          label="Passive Film"
+          label="PASSIVE FILM"
           value={filmStatusText}
-          color={filmStatusColor}
+          color={filmBroken ? "#d4a017" : "#cccccc"}
         />
         <MetricPill
-          label="Est. Life"
-          value={`~${estLifeYears} yr`}
-          color="#10b981"
+          label="EST. LIFE"
+          value={`~${estLifeYears} YR`}
+          color="#ffffff"
         />
       </div>
 
       {/* Environment note */}
-      <p className="text-[10px] text-slate-600 text-center leading-relaxed">
-        {activeEnv.description}&nbsp;
-        Grade {gradeLabel} · CR {corrosionResistance}/5 · PREN {pren}
+      <p className="font-text text-[14px] text-[#666666] mt-4">
+        {activeEnv.description} Grade {gradeLabel} · CR {corrosionResistance}/5 · PREN {pren}
       </p>
     </div>
   );
@@ -434,11 +433,11 @@ function MetricPill({
   label: string; value: string; color: string;
 }) {
   return (
-    <div className="bg-[#1a1a20] border border-[#2a2a35] rounded-lg p-2 text-center">
-      <div className="text-[9px] font-bold text-slate-600 uppercase tracking-wider mb-0.5">
+    <div>
+      <div className="font-mono text-[10px] tracking-[2px] uppercase text-[#666666] mb-1">
         {label}
       </div>
-      <div className="font-mono font-bold text-xs" style={{ color }}>
+      <div className="font-mono text-[16px] tracking-[1px] uppercase" style={{ color }}>
         {value}
       </div>
     </div>
