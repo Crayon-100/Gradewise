@@ -1,89 +1,109 @@
 @import "tailwindcss";
-
 @plugin "tailwindcss-animate";
 
-@theme {
-  --color-canvas: #000000;
-  --color-surface-soft: #0d0d0d;
-  --color-surface-card: #141414;
-  --color-surface-elevated: #1f1f1f;
-  --color-hairline: #262626;
-  --color-hairline-strong: #3a3a3a;
-  
-  --color-ink: #ffffff;
-  --color-body: #cccccc;
-  --color-body-strong: #e6e6e6;
-  --color-muted: #999999;
-  --color-muted-soft: #666666;
-  --color-link: #c3d9f3;
+/* ============================================================
+   Amber Slate — GradeWise Design System
+   Matches Jindal Stainless industrial colour identity:
+     Deep charcoal backgrounds + molten-amber primary accent
+   ============================================================ */
 
-  --font-display: var(--font-display), sans-serif;
-  --font-text: var(--font-text), serif;
-  --font-mono: var(--font-mono), monospace;
+:root {
+  /* ── Core backgrounds ── */
+  --gs-bg:        #0f0f11;   /* page background */
+  --gs-surface:   #18181b;   /* elevated card surface */
+  --gs-surface-2: #1e1e24;   /* deeper card (Pro panels, inputs) */
+  --gs-border:    #2a2a35;   /* subtle border */
+  --gs-border-2:  #353545;   /* slightly brighter border */
+
+  /* ── Brand accent — molten amber / forge orange ── */
+  --gs-amber:     #ea580c;
+  --gs-amber-light: #fb923c;
+  --gs-amber-glow:  rgba(234, 88, 12, 0.20);
+
+  /* ── Steel blue secondary ── */
+  --gs-blue:      #3b82f6;
+  --gs-blue-dim:  #1d4ed8;
+
+  /* ── Text hierarchy ── */
+  --gs-text-1:    #f5f5f7;   /* headings */
+  --gs-text-2:    #a1a1aa;   /* body */
+  --gs-text-3:    #52525b;   /* captions / muted */
+
+  /* ── State colours ── */
+  --gs-success:   #10b981;
+  --gs-warning:   #f59e0b;
+  --gs-danger:    #ef4444;
+
+  /* Tailwind compat */
+  --background: var(--gs-bg);
+  --foreground: var(--gs-text-1);
 }
 
-@layer base {
-  :root {
-    --canvas: #000000;
-    --ink: #ffffff;
-    --muted: #999999;
-  }
-  
-  body {
-    background-color: var(--canvas);
-    color: var(--ink);
-    font-family: var(--font-text);
-  }
-
-  /* Typography Enforcements */
-  h1, h2, h3, h4, h5, h6, .font-display {
-    font-family: var(--font-display);
-    text-transform: uppercase;
-    font-weight: 400;
-  }
-
-  .font-mono {
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    font-weight: 400;
-  }
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: var(--canvas);
-}
-::-webkit-scrollbar-thumb {
-  background: #262626;
-  border-radius: 0;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #3a3a3a;
+/* ── Base resets ── */
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-/* Minimalist Range Input */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--gs-bg);
+  color: var(--gs-text-1);
+  font-family: var(--font-geist-sans), system-ui, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--gs-bg); }
+::-webkit-scrollbar-thumb { background: var(--gs-border-2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gs-amber); }
+
+/* ── Amber-theme range input ── */
 input[type="range"] {
   -webkit-appearance: none;
-  background: transparent;
-  width: 100%;
-}
-input[type="range"]::-webkit-slider-runnable-track {
-  width: 100%;
-  height: 1px;
-  background: #262626;
+  appearance: none;
+  background: var(--gs-border);
+  border-radius: 4px;
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  height: 16px;
-  width: 4px;
-  background: #ffffff;
-  margin-top: -7px;
-  cursor: ew-resize;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--gs-amber);
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--gs-amber-glow);
+  border: 2px solid var(--gs-bg);
 }
-input[type="range"]:focus {
-  outline: none;
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--gs-amber);
+  cursor: pointer;
+  border: 2px solid var(--gs-bg);
+}
+
+/* ── Selection highlight ── */
+::selection {
+  background: var(--gs-amber-glow);
+  color: var(--gs-text-1);
+}
+
+/* ── Text glow utility ── */
+.text-amber-glow {
+  color: var(--gs-amber);
+  text-shadow: 0 0 20px var(--gs-amber-glow);
 }

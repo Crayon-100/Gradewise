@@ -1,131 +1,212 @@
-import { useEffect, useRef, useState } from "react";
-import { GradeRecommendation } from "../lib/api";
+"use client";
+/**
+ * RadarChart — Animated Multi-Grade Spider Chart
+ * ================================================
+ * A pure-SVG radar/spider chart that overlays polygon webs for 2-3 grades.
+ *
+ * Five axes (all normalised 0 → 100):
+ *   1. Mechanical Strength  — yield strength relative to max in portfolio
+ *   2. Corrosion Resistance — direct from grade.corrosion_resistance (1–5)
+ *   3. Cost Efficiency      — inverse of cost_tier (lower price = higher score)
+ *   4. Workability          — formability (1–5)
+ *   5. Thermal Endurance    — max_service_temp_c (350–1100 °C range)
+ *
+ * Animation: polygons draw in from the centre via SVG stroke-dashoffset.
+ */
+import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import type { GradeRecommendation } from "../lib/api";
 import { radarScores } from "../lib/physics";
+
+const AXES = [
+  "Strength",
+  "Corrosion",
+  "Cost Value",
+  "Workability",
+  "Thermal",
+];
+
+const NUM_RINGS = 4; // concentric reference rings
+const CHART_R = 100; // radius in SVG units
+const CX = 130; // cx of the chart
+const CY = 130; // cy of the chart
+const VIEW = 260; // viewBox size
+
+// Colors for up to 3 grades
+const PALETTE = [
+  { stroke: "#ea580c", fill: "rgba(234,88,12,0.15)" },     // amber
+  { stroke: "#3b82f6", fill: "rgba(59,130,246,0.12)" },    // steel blue
+  { stroke: "#10b981", fill: "rgba(16,185,129,0.12)" },    // emerald
+];
+
+/** Convert a 5-element score array to SVG polygon points */
+function toPoints(scores: number[], r: number, cx: number, cy: number): string {
+  return scores
+    .map((score, i) => {
+      const angle = (2 * Math.PI * i) / scores.length - Math.PI / 2;
+      const val = (score / 100) * r;
+      return `${cx + val * Math.cos(angle)},${cy + val * Math.sin(angle)}`;
+    })
+    .join(" ");
+}
+
+/** Axis label position (slightly outside the chart radius) */
+function axisLabelPos(
+  idx: number,
+  count: number,
+  r: number,
+  cx: number,
+  cy: number
+) {
+  const angle = (2 * Math.PI * idx) / count - Math.PI / 2;
+  const dist = r + 18;
+  return { x: cx + dist * Math.cos(angle), y: cy + dist * Math.sin(angle) };
+}
 
 interface Props {
   grades: GradeRecommendation[];
-  activeIdx: number;
 }
 
-const AXES = [
-  { label: "STRENGTH", key: 0 },
-  { label: "CORROSION", key: 1 },
-  { label: "COST VAL.", key: 2 },
-  { label: "WORKABILITY", key: 3 },
-  { label: "THERMAL", key: 4 },
-];
-
-const RADAR_COLORS = ["#ffffff", "#666666", "#3a3a3a"];
-
-export default function RadarChart({ grades, activeIdx }: Props) {
-  const [scores, setScores] = useState<number[][]>([]);
+export default function RadarChart({ grades }: Props) {
   const polyRefs = useRef<(SVGPolygonElement | null)[]>([]);
 
+  // Animate stroke-dashoffset on mount
   useEffect(() => {
-    const computed = grades.map(g => radarScores(g));
-    setScores(computed);
+    polyRefs.current.forEach((el) => {
+      if (!el) return;
+      const len = el.getTotalLength?.() ?? 500;
+      el.style.strokeDasharray = `${len}`;
+      el.style.strokeDashoffset = `${len}`;
+      // Trigger animation via a tiny delay
+      requestAnimationFrame(() => {
+        el.style.transition = "stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1)";
+        el.style.strokeDashoffset = "0";
+      });
+    });
   }, [grades]);
 
-  useEffect(() => {
-    polyRefs.current.forEach(poly => {
-      if (!poly) return;
-      const len = poly.getTotalLength();
-      poly.style.strokeDasharray = `${len}`;
-      poly.style.strokeDashoffset = `${len}`;
-      // Trigger reflow
-      poly.getBoundingClientRect();
-      poly.style.transition = "stroke-dashoffset 1.5s cubic-bezier(0.16, 1, 0.3, 1)";
-      poly.style.strokeDashoffset = "0";
-    });
-  }, [scores]);
-
-  if (!scores.length) return null;
-
-  const getPoints = (data: number[]) => {
-    return data.map((val, i) => {
-      const angle = (Math.PI * 2 * i) / AXES.length - Math.PI / 2;
-      const r = (val / 100) * 40;
-      return `${50 + r * Math.cos(angle)},${50 + r * Math.sin(angle)}`;
-    }).join(" ");
-  };
-
   return (
-    <div className="w-full max-w-[400px] relative">
-      <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
-        {/* Background Web Grid */}
-        {[20, 40, 60, 80, 100].map((ring) => (
-          <polygon
-            key={ring}
-            points={AXES.map((_, i) => {
-              const angle = (Math.PI * 2 * i) / AXES.length - Math.PI / 2;
-              const r = (ring / 100) * 40;
-              return `${50 + r * Math.cos(angle)},${50 + r * Math.sin(angle)}`;
-            }).join(" ")}
-            fill="none"
-            stroke="#262626"
-            strokeWidth={0.5}
-          />
-        ))}
+    <div className="flex flex-col items-center">
+      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">
+        Grade Comparison
+      </h3>
 
-        {/* Axis Lines */}
-        {AXES.map((axis, i) => {
-          const angle = (Math.PI * 2 * i) / AXES.length - Math.PI / 2;
-          return (
-            <g key={axis.key}>
-              <line
-                x1={50} y1={50}
-                x2={50 + 40 * Math.cos(angle)}
-                y2={50 + 40 * Math.sin(angle)}
-                stroke="#3a3a3a" strokeWidth={0.5}
-              />
-              <text
-                x={50 + 48 * Math.cos(angle)}
-                y={50 + 48 * Math.sin(angle) + 2}
-                textAnchor="middle"
-                className="font-mono text-[4px] tracking-[1px] uppercase fill-[#999999]"
-              >
-                {axis.label}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* Data Polygons */}
-        {scores.map((data, idx) => {
-          const isTop = idx === 0;
-          const isActive = idx === activeIdx;
-          const color = RADAR_COLORS[idx % RADAR_COLORS.length];
-          // Hide non-active non-top grades to keep it austere, unless it's top vs active.
-          const show = isTop || isActive;
-          if (!show) return null;
-
+      <svg
+        viewBox={`0 0 ${VIEW} ${VIEW}`}
+        width="100%"
+        className="max-w-[280px]"
+      >
+        {/* ── Reference rings ── */}
+        {Array.from({ length: NUM_RINGS }, (_, ring) => {
+          const r = (CHART_R * (ring + 1)) / NUM_RINGS;
+          const pts = Array.from({ length: AXES.length }, (__, i) => {
+            const angle = (2 * Math.PI * i) / AXES.length - Math.PI / 2;
+            return `${CX + r * Math.cos(angle)},${CY + r * Math.sin(angle)}`;
+          }).join(" ");
           return (
             <polygon
-              key={idx}
-              ref={el => { polyRefs.current[idx] = el; }}
-              points={getPoints(data)}
-              fill={isTop ? "rgba(255,255,255,0.05)" : "transparent"}
-              stroke={color}
-              strokeWidth={isTop ? 1 : 0.5}
-              style={{
-                opacity: isActive ? 1 : 0.4,
-                zIndex: isTop ? 10 : 0
-              }}
+              key={ring}
+              points={pts}
+              fill="none"
+              stroke="#2a2a32"
+              strokeWidth={ring === NUM_RINGS - 1 ? 1.5 : 0.8}
             />
           );
         })}
-      </svg>
-      
-      {/* Legend */}
-      <div className="absolute -bottom-8 left-0 right-0 flex justify-center gap-6">
-        {grades.map((g, idx) => {
-          if (idx !== 0 && idx !== activeIdx) return null;
-          const color = RADAR_COLORS[idx % RADAR_COLORS.length];
+
+        {/* ── Axis spokes ── */}
+        {AXES.map((_, i) => {
+          const angle = (2 * Math.PI * i) / AXES.length - Math.PI / 2;
           return (
-            <div key={g.grade} className="flex items-center gap-2">
-              <div className="w-3 h-[1px]" style={{ backgroundColor: color }} />
-              <span className="font-mono text-[9px] tracking-[2px] uppercase text-[#999999]">
-                {idx === 0 ? "OPTIMAL: " : "COMPARE: "}{g.grade}
+            <line
+              key={i}
+              x1={CX}
+              y1={CY}
+              x2={CX + CHART_R * Math.cos(angle)}
+              y2={CY + CHART_R * Math.sin(angle)}
+              stroke="#2a2a32"
+              strokeWidth={0.8}
+            />
+          );
+        })}
+
+        {/* ── Axis labels ── */}
+        {AXES.map((label, i) => {
+          const { x, y } = axisLabelPos(i, AXES.length, CHART_R, CX, CY);
+          return (
+            <text
+              key={i}
+              x={x}
+              y={y}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={7.5}
+              fontWeight={600}
+              fill="#94a3b8"
+              fontFamily="inherit"
+            >
+              {label}
+            </text>
+          );
+        })}
+
+        {/* ── Grade polygons ── */}
+        {grades.map((grade, gi) => {
+          const scores = radarScores(grade);
+          const pts = toPoints(scores, CHART_R, CX, CY);
+          const color = PALETTE[gi % PALETTE.length];
+          return (
+            <g key={grade.grade}>
+              {/* Filled polygon — animate opacity */}
+              <motion.polygon
+                points={pts}
+                fill={color.fill}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.8, delay: gi * 0.2 }}
+              />
+              {/* Outlined polygon — stroke-dashoffset animation via ref */}
+              <polygon
+                ref={(el) => { polyRefs.current[gi] = el; }}
+                points={pts}
+                fill="none"
+                stroke={color.stroke}
+                strokeWidth={2}
+              />
+              {/* Score nodes */}
+              {radarScores(grade).map((score, ai) => {
+                const angle = (2 * Math.PI * ai) / AXES.length - Math.PI / 2;
+                const val = (score / 100) * CHART_R;
+                return (
+                  <motion.circle
+                    key={ai}
+                    cx={CX + val * Math.cos(angle)}
+                    cy={CY + val * Math.sin(angle)}
+                    r={3.5}
+                    fill={color.stroke}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.8 + gi * 0.15 + ai * 0.05 }}
+                  />
+                );
+              })}
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-4 mt-3 justify-center">
+        {grades.map((grade, gi) => {
+          const color = PALETTE[gi % PALETTE.length];
+          return (
+            <div key={grade.grade} className="flex items-center gap-1.5">
+              <div
+                className="w-3 h-3 rounded-sm"
+                style={{ background: color.stroke }}
+              />
+              <span className="text-xs text-slate-400 font-semibold">
+                Grade {grade.grade}
               </span>
             </div>
           );
