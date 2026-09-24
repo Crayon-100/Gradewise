@@ -53,7 +53,7 @@ GRADES_BY_LABEL: dict[str, dict] = {g["grade"]: g for g in GRADES}
 _gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ---------------------------------------------------------------------------
-# FastAPI app + CORS
+# FastAPI app
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
@@ -62,21 +62,47 @@ app = FastAPI(
     version="1.0.0",
 )
 
-_allowed_origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-_frontend_url = os.getenv("FRONTEND_URL")
+# ---------------------------------------------------------------------------
+# CORS — Cross-Origin Resource Sharing
+#
+# TEMPORARY: allow_origins=["*"] lets any domain call this API during
+# development and the Stainless Spark live demo. This is fine while the
+# backend has no user data or authentication.
+#
+# TODO (before final hardened deployment): replace ["*"] with the explicit
+# list below once the Vercel domain is known:
+#
+#   _cors_origins = [
+#       "https://gradewise.vercel.app",   # real Vercel URL goes here
+#       "http://localhost:3000",
+#   ]
+#
+# Note: allow_credentials=True cannot be combined with allow_origins=["*"]
+# per the CORS spec — browsers will reject it. We set it False for the
+# wildcard case and only enable it when a specific origin list is active.
+# ---------------------------------------------------------------------------
+
+_frontend_url = os.getenv("FRONTEND_URL")  # set this in Render environment vars
+
 if _frontend_url:
-    _allowed_origins.append(_frontend_url)
+    # Restricted mode: only allow the configured frontend domain + local dev
+    _cors_origins = [
+        _frontend_url,
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+    _cors_credentials = True
+else:
+    # TEMPORARY — allow all origins for local development and live demo
+    _cors_origins = ["*"]
+    _cors_credentials = False  # must be False when allow_origins=["*"]
 
 app.add_middleware(
     CORSMiddleware,
-    # During development allow all origins; tighten to _allowed_origins before final demo
-    allow_origins=_allowed_origins if _frontend_url else ["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_credentials,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
