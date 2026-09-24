@@ -1,6 +1,17 @@
-import os
+"""
+Convert the GradeWise demo Excel datasheet into backend/data/grades.json.
+
+Run from anywhere:
+    python convert_grades.py
+    python convert_grades.py --excel /path/to/Datasheet.xlsx --output /path/to/grades.json
+"""
+
+import argparse
 import json
+import os
 import re
+import sys
+
 import openpyxl
 
 EXCEL_PATH = os.path.join(os.path.dirname(__file__), "..", "GradeWise_Demo_Steel_Datasheet.xlsx")
@@ -13,7 +24,7 @@ HEADER_MAP = {
     "Type": "type",
     "Yield Strength (MPa)": "yield_strength_mpa",
     "Tensile Strength (MPa)": "tensile_strength_mpa",
-    "Elongation (%)": "elongation_pct",
+    "Elongation (%):": "elongation_pct",
     "Hardness": "hardness",
     "Young's Modulus (GPa)": "youngs_modulus_gpa",
     "Density (kg/m3)": "density_kg_m3",
@@ -39,6 +50,7 @@ NUMERIC_FIELDS = {
     "cost_tier",
 }
 
+
 def clean_text(val):
     if not isinstance(val, str):
         return val
@@ -48,19 +60,34 @@ def clean_text(val):
     val = re.sub(r"\s+", " ", val)
     return val
 
-def convert():
-    if not os.path.exists(EXCEL_PATH):
-        raise FileNotFoundError(f"Excel file not found at: {EXCEL_PATH}")
 
-    wb = openpyxl.load_workbook(EXCEL_PATH, data_only=True)
+def _to_number(key, val, warnings):
+    """Coerce a cell to int/float. Non-numeric cells degrade to 0 with a warning
+    instead of aborting the whole conversion."""
+    try:
+        num_val = float(val)
+    except (TypeError, ValueError):
+        warnings.append(f"row value {val!r} for '{key}' is not numeric — stored as 0")
+        return 0
+    return int(num_val) if num_val.is_integer() else num_val
+
+
+def convert(excel_path=EXCEL_PATH, output_path=OUTPUT_PATH):
+    """Read the datasheet and write grades.json. Returns the parsed grade list."""
+    warnings = []
+
+    if not os.path.exists(excel_path):
+        raise FileNotFoundError(f"Excel file not found at: {excel_path}")
+
+    wb = openpyxl.load_workbook(excel_path, data_only=True)
     ws = wb["Grade Data"] if "Grade Data" in wb.sheetnames else wb.active
 
     headers = [cell.value for cell in ws[1]]
     mapped_keys = [HEADER_MAP.get(h) for h in headers]
 
-    missing_headers = [h for h, k in zip(headers, mapped_keys) if k is None]
+    missing_headers = [h for h, k in zip(headers, mapped_keys, strict=False) if k is None]
     if missing_headers:
-        print(f"Warning: Unmapped headers encountered: {missing_headers}")
+        warnings.append(f"Unmapped headers encountered: {missing_headers}")
 
     grades = []
     for row_idx in range(2, ws.max_row + 1):
@@ -69,16 +96,14 @@ def convert():
             continue
 
         item = {}
-        for key, val in zip(mapped_keys, vals):
+        for key, val in zip(mapped_keys, vals, strict=False):
             if not key:
                 continue
 
             # Type conversions
             if key in NUMERIC_FIELDS:
                 if val is not None:
-                    # If int-like, store as int
-                    num_val = float(val)
-                    item[key] = int(num_val) if num_val.is_integer() else num_val
+                    item[key] = _to_number(key, val, warnings)
                 else:
                     item[key] = 0
             else:
@@ -92,12 +117,35 @@ def convert():
 
         grades.append(item)
 
-    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+    for warning in warnings:
+        print(f"Warning: {warning}")
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(grades, f, indent=2, ensure_ascii=False)
 
-    print(f"Successfully converted {len(grades)} steel grades to: {OUTPUT_PATH}")
+    print(f"Successfully converted {len(grades)} steel grades to: {output_path}")
     return grades
 
+
+def build_parser():
+    parser = argparse.ArgumentParser(
+        description="Convert the GradeWise demo Excel datasheet into backend/data/grades.json."
+    )
+    parser.add_argument("--excel", default=EXCEL_PATH, help="Path to the source .xlsx datasheet.")
+    parser.add_argument("--output", default=OUTPUT_PATH, help="Path to write grades.json.")
+    return parser
+
+
+def main(argv=None):
+    args = build_parser().parse_args(argv)
+    try:
+        convert(args.excel, args.output)
+    except FileNotFoundError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
-    convert()
+    sys.exit(main())

@@ -9,33 +9,36 @@ IMPORTANT: The Gemini model is only used to READ grades.json and decide
 which 2-3 grades to recommend and what plain-English trade-off text to
 show. It never invents property numbers. All numerical outputs
 (loads, deflections, elongations) come exclusively from calculations.py.
+
+The service boots WITHOUT a GEMINI_API_KEY — /health and / stay up, and
+/recommend returns a clean 503 until the key is configured. This keeps a
+misconfigured deploy from crash-looping on startup.
 """
 
 import json
 import os
 import re
+import time
 from pathlib import Path
+from typing import Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from google.genai import types
-from pydantic import BaseModel, Field
+from google.genai.errors import APIError
+from pydantic import BaseModel, Field, model_validator
 
 from engine.calculations import calc_rod_properties
 
 # ---------------------------------------------------------------------------
-# Boot-up: load .env, validate API key, read grades once from disk
+# Boot-up: load .env, read grades once from disk
 # ---------------------------------------------------------------------------
 
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise RuntimeError(
-        "GEMINI_API_KEY is not set. Add it to your .env file or Render environment."
-    )
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Resolve grades.json relative to this file so it works from any cwd
 _GRADES_PATH = Path(__file__).parent / "data" / "grades.json"
@@ -49,8 +52,10 @@ with open(_GRADES_PATH, "r", encoding="utf-8") as _f:
 # e.g. "316" → {...}, "2205 (Duplex)" → {...}
 GRADES_BY_LABEL: dict[str, dict] = {g["grade"]: g for g in GRADES}
 
-# Initialise Gemini client (uses GEMINI_API_KEY automatically from env)
-_gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+# Gemini client is created lazily. Uses GEMINI_API_KEY automatically from env.
+# If the key is missing the app still boots; /recommend returns 503 instead
+# of the whole process dying at import time (which crash-looped deploys).
+_gemini_client: "genai.Client | None" = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 # ---------------------------------------------------------------------------
 # FastAPI app
@@ -59,7 +64,7 @@ _gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 app = FastAPI(
     title="GradeWise API",
     description="Stainless Steel Grade Recommendation & Physics Calculation Engine",
-    version="1.0.0",
+    version="1.1.0",
 )
 
 # ---------------------------------------------------------------------------
@@ -118,9 +123,19 @@ class RecommendRequest(BaseModel):
         min_length=5,
         max_length=500,
     )
-    diameter_mm: float = Field(
-        default=20.0,
-        description="Rod outer diameter in millimetres.",
+    shape: Literal["round", "square"] = Field(
+        default="round",
+        description="Cross-section shape of the rod: 'round' (solid circular bar) or 'square' (solid square bar).",
+    )
+    dimension_mm: float | None = Field(
+        default=None,
+        description="Rod dimension: outer diameter (round) or side length (square) in millimetres.",
+        ge=1.0,
+        le=200.0,
+    )
+    diameter_mm: float | None = Field(
+        default=None,
+        description="Legacy alias for dimension_mm (round rods) kept for older clients. Use dimension_mm instead.",
         ge=1.0,
         le=200.0,
     )
@@ -130,6 +145,16 @@ class RecommendRequest(BaseModel):
         ge=50.0,
         le=10_000.0,
     )
+
+    @model_validator(mode="after")
+    def _resolve_dimension(self) -> "RecommendRequest":
+        if self.dimension_mm is None and self.diameter_mm is None:
+            raise ValueError("dimension_mm (or legacy diameter_mm) is required")
+        if self.dimension_mm is not None and self.diameter_mm is not None:
+            raise ValueError("provide either dimension_mm or diameter_mm, not both")
+        if self.dimension_mm is None:
+            object.__setattr__(self, "dimension_mm", self.diameter_mm)
+        return self
 
 
 class PhysicsNumbers(BaseModel):
@@ -157,6 +182,14 @@ class GradeRecommendation(BaseModel):
     uns_no: str
     series: str
     type: str
+    # Raw material properties (from grades.json — used by the frontend
+    # for client-side physics recalculation when sliders move)
+    yield_strength_mpa: float
+    tensile_strength_mpa: float
+    youngs_modulus_gpa: float
+    elongation_pct: float
+    density_kg_m3: float
+    # General metrics
     corrosion_resistance: int
     cost_tier: int
     formability: int
@@ -173,7 +206,9 @@ class GradeRecommendation(BaseModel):
 
 class RecommendResponse(BaseModel):
     user_need: str
-    diameter_mm: float
+    shape: Literal["round", "square"]
+    dimension_mm: float
+    diameter_mm: float  # legacy mirror of dimension_mm, kept for older clients
     length_mm: float
     recommendations: list[GradeRecommendation]
 
@@ -213,7 +248,7 @@ _GEMINI_RESPONSE_SCHEMA = {
 }
 
 
-def _build_prompt(user_need: str, diameter_mm: float, length_mm: float) -> str:
+def _build_prompt(user_need: str, shape: str, dimension_mm: float, length_mm: float) -> str:
     """
     Build the Gemini prompt. Embedding the full grades.json ensures the model
     reasons only from real data and cannot hallucinate grades or properties.
@@ -235,7 +270,8 @@ USER NEED
 
 ROD DIMENSIONS (for context only — do NOT calculate any numbers yourself)
 -----------------------------------
-Diameter: {diameter_mm} mm
+Shape:    {shape}
+Dimension:{dimension_mm} mm
 Length:   {length_mm} mm
 
 RULES (strictly enforced)
@@ -294,7 +330,7 @@ def root():
     return {
         "status": "healthy",
         "service": "GradeWise API",
-        "version": "1.0.0",
+        "version": "1.1.0",
     }
 
 
@@ -317,17 +353,33 @@ def recommend(req: RecommendRequest):
       5. Assemble and return the combined JSON response.
     """
 
+    # Step 0: /recommend is the only endpoint that needs Gemini — fail cleanly
+    # if the key was never configured instead of crash-looping the whole app.
+    if _gemini_client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="GEMINI_API_KEY is not configured on the server. "
+                   "Set it in the environment and restart to enable recommendations.",
+        )
+
+    # The model validator resolves dimension_mm from the legacy diameter_mm
+    # alias when needed; this guard keeps the type narrow and the invariant
+    # explicit (unreachable in practice — 422 otherwise).
+    dimension_mm: float = req.dimension_mm  # type: ignore[assignment]
+    if dimension_mm is None:
+        raise HTTPException(
+            status_code=422,
+            detail="A rod dimension is required: send dimension_mm (or legacy diameter_mm).",
+        )
+
     # Step 1 & 2: Ask Gemini to shortlist grades (text only, no numbers)
-    prompt = _build_prompt(req.user_need, req.diameter_mm, req.length_mm)
+    prompt = _build_prompt(req.user_need, req.shape, dimension_mm, req.length_mm)
 
-    # Google's servers for 3.6-flash occasionally throw 503 High Demand errors on the free tier.
-    # We will try up to 3 times with a small delay.
-    import time
-    from google.genai.errors import APIError
-
+    # Google's servers for 3.6-flash occasionally throw 503 High Demand errors
+    # on the free tier — retry up to 3 times with a short delay.
     max_retries = 3
     ai_response = None
-    
+
     for attempt in range(max_retries):
         try:
             ai_response = _gemini_client.models.generate_content(
@@ -336,7 +388,7 @@ def recommend(req: RecommendRequest):
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_json_schema=_GEMINI_RESPONSE_SCHEMA,
-                    temperature=0.3,
+                    temperature=0.3,   # lower temp = more consistent grade selection
                     max_output_tokens=1024,
                 ),
             )
@@ -347,13 +399,15 @@ def recommend(req: RecommendRequest):
                 continue
             raise HTTPException(
                 status_code=502,
-                detail=f"Gemini API call failed after 3 attempts: {exc}",
-            )
+                detail=f"Gemini API call failed after {max_retries} attempts: {exc}",
+            ) from None
         except Exception as exc:
             raise HTTPException(
                 status_code=502,
                 detail=f"Gemini API call failed: {exc}",
-            )
+            ) from None
+
+    assert ai_response is not None  # loop raised on every attempt otherwise
 
     # Parse the structured JSON the model returned
     try:
@@ -362,7 +416,7 @@ def recommend(req: RecommendRequest):
         raise HTTPException(
             status_code=502,
             detail=f"Gemini returned unparseable JSON: {exc}. Raw: {getattr(ai_response, 'text', '—')}",
-        )
+        ) from None
 
     if not isinstance(ai_picks, list) or not ai_picks:
         raise HTTPException(
@@ -374,6 +428,10 @@ def recommend(req: RecommendRequest):
     recommendations: list[GradeRecommendation] = []
 
     for pick in ai_picks:
+        # A schema-violating pick (non-dict / None) must be skipped, not 500.
+        if not isinstance(pick, dict):
+            continue
+
         grade_label: str = pick.get("grade", "").strip()
         ai_explanation: str = pick.get("ai_explanation", "").strip()
 
@@ -387,8 +445,9 @@ def recommend(req: RecommendRequest):
         # Run the deterministic physics engine — AI never touches these numbers
         rod = calc_rod_properties(
             grade_data=grade_data,
-            diameter_mm=req.diameter_mm,
+            dimension_mm=dimension_mm,
             length_mm=req.length_mm,
+            shape=req.shape,
         )
 
         physics = PhysicsNumbers(
@@ -416,6 +475,12 @@ def recommend(req: RecommendRequest):
                 uns_no=grade_data["uns_no"],
                 series=grade_data["series"],
                 type=grade_data["type"],
+                # Raw material properties for client-side physics
+                yield_strength_mpa=grade_data["yield_strength_mpa"],
+                tensile_strength_mpa=grade_data["tensile_strength_mpa"],
+                youngs_modulus_gpa=grade_data["youngs_modulus_gpa"],
+                elongation_pct=grade_data["elongation_pct"],
+                density_kg_m3=grade_data["density_kg_m3"],
                 corrosion_resistance=grade_data["corrosion_resistance"],
                 cost_tier=grade_data["cost_tier"],
                 formability=grade_data["formability"],
@@ -440,7 +505,9 @@ def recommend(req: RecommendRequest):
 
     return RecommendResponse(
         user_need=req.user_need,
-        diameter_mm=req.diameter_mm,
+        shape=req.shape,
+        dimension_mm=dimension_mm,
+        diameter_mm=dimension_mm,  # legacy mirror
         length_mm=req.length_mm,
         recommendations=recommendations,
     )
