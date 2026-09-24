@@ -320,22 +320,40 @@ def recommend(req: RecommendRequest):
     # Step 1 & 2: Ask Gemini to shortlist grades (text only, no numbers)
     prompt = _build_prompt(req.user_need, req.diameter_mm, req.length_mm)
 
-    try:
-        ai_response = _gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_json_schema=_GEMINI_RESPONSE_SCHEMA,
-                temperature=0.3,   # lower temp = more consistent grade selection
-                max_output_tokens=1024,
-            ),
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Gemini API call failed: {exc}",
-        )
+    # Google's servers for 3.6-flash occasionally throw 503 High Demand errors on the free tier.
+    # We will try up to 3 times with a small delay.
+    import time
+    from google.genai.errors import APIError
+
+    max_retries = 3
+    ai_response = None
+    
+    for attempt in range(max_retries):
+        try:
+            ai_response = _gemini_client.models.generate_content(
+                model="gemini-3.6-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_json_schema=_GEMINI_RESPONSE_SCHEMA,
+                    temperature=0.3,
+                    max_output_tokens=1024,
+                ),
+            )
+            break  # Success! Exit the retry loop
+        except APIError as exc:
+            if attempt < max_retries - 1:
+                time.sleep(2)  # Wait 2 seconds before retrying
+                continue
+            raise HTTPException(
+                status_code=502,
+                detail=f"Gemini API call failed after 3 attempts: {exc}",
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Gemini API call failed: {exc}",
+            )
 
     # Parse the structured JSON the model returned
     try:
