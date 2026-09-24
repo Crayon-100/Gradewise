@@ -1,6 +1,6 @@
 /**
  * GradeWise API Client
- * 
+ *
  * All API calls use NEXT_PUBLIC_BACKEND_URL.
  * Defaults to http://localhost:8000 for local development.
  */
@@ -10,8 +10,7 @@ export const BACKEND_URL =
 
 export interface RecommendRequest {
   user_need: string;
-  shape: "round" | "square";
-  dimension_mm: number;
+  diameter_mm: number;
   length_mm: number;
 }
 
@@ -36,7 +35,7 @@ export interface GradeRecommendation {
   uns_no: string;
   series: string;
   type: string;
-  // Raw material properties
+  // Raw material properties — used by client-side physics for 0-latency slider recalcs
   yield_strength_mpa: number;
   tensile_strength_mpa: number;
   youngs_modulus_gpa: number;
@@ -62,9 +61,7 @@ export interface RecommendResponse {
   recommendations: GradeRecommendation[];
 }
 
-/**
- * Health check probe to test backend connectivity
- */
+/** Health check probe to test backend connectivity */
 export async function checkBackendHealth(): Promise<{ status: string }> {
   const response = await fetch(`${BACKEND_URL}/health`);
   if (!response.ok) {
@@ -73,17 +70,13 @@ export async function checkBackendHealth(): Promise<{ status: string }> {
   return response.json();
 }
 
-/**
- * Fetch grade recommendations + deterministic physics numbers
- */
+/** Fetch grade recommendations + deterministic physics numbers */
 export async function getRecommendations(
   req: RecommendRequest
 ): Promise<RecommendResponse> {
   const response = await fetch(`${BACKEND_URL}/recommend`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
   });
 
