@@ -179,27 +179,6 @@ export default function Home() {
                   />
                 </div>
                 
-                {/* Micro settings inside the search bar */}
-                <div className="hidden md:flex items-center gap-4 px-4 border-l border-white/10">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Shape</span>
-                    <select 
-                      value={shape} onChange={(e) => setShape(e.target.value as "round" | "square")}
-                      className="bg-transparent text-sm font-semibold text-amber-500 outline-none cursor-pointer"
-                    >
-                      <option value="round" className="bg-[#131316]">Round</option>
-                      <option value="square" className="bg-[#131316]">Square</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Dim (mm)</span>
-                    <input 
-                      type="number" placeholder="20" value={dimensionStr} onChange={e => setDimensionStr(e.target.value)}
-                      className="w-12 bg-transparent text-sm font-semibold text-white outline-none placeholder:text-slate-700"
-                    />
-                  </div>
-                </div>
-
                 <HoverBorderGradient
                   containerClassName="w-full sm:w-auto"
                   as="button"
@@ -216,6 +195,34 @@ export default function Home() {
                     <>Analyze <ArrowRight className="w-4 h-4" /></>
                   )}
                 </HoverBorderGradient>
+              </div>
+
+              {/* Parameters placed below the main search bar */}
+              <div className="flex flex-wrap items-center justify-center gap-6 mt-6 pt-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Shape</span>
+                  <select 
+                    value={shape} onChange={(e) => setShape(e.target.value as "round" | "square")}
+                    className="bg-[#131316] border border-white/10 rounded-lg px-3 py-1.5 text-sm font-semibold text-amber-500 outline-none cursor-pointer hover:border-white/20 transition-colors"
+                  >
+                    <option value="round">Round</option>
+                    <option value="square">Square</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Diameter (mm)</span>
+                  <input 
+                    type="number" placeholder="20" value={dimensionStr} onChange={e => setDimensionStr(e.target.value)}
+                    className="w-20 bg-[#131316] border border-white/10 rounded-lg px-3 py-1.5 text-sm font-semibold text-white outline-none placeholder:text-slate-700 hover:border-white/20 transition-colors"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Length (mm)</span>
+                  <input 
+                    type="number" placeholder="1200" value={lengthStr} onChange={e => setLengthStr(e.target.value)}
+                    className="w-20 bg-[#131316] border border-white/10 rounded-lg px-3 py-1.5 text-sm font-semibold text-white outline-none placeholder:text-slate-700 hover:border-white/20 transition-colors"
+                  />
+                </div>
               </div>
             </motion.form>
 
@@ -262,34 +269,12 @@ export default function Home() {
         {results && activeGrade && activePhysics && (
           <div ref={resultsRef} className="relative w-full bg-[#0a0a0c]/95 border-t border-white/5 pb-32">
             
-            {/* Global Context Bar (Sticky) */}
-            <div className="sticky top-20 z-30 w-full bg-[#0a0a0c]/80 backdrop-blur-md border-b border-white/10 px-6 py-3 flex items-center justify-between text-xs">
-               <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
-                 <div className="flex items-center gap-2 text-slate-400 whitespace-nowrap">
-                   <Settings2 className="w-4 h-4 text-amber-500" />
-                   <span className="font-bold uppercase tracking-widest text-[9px]">Global Config</span>
-                 </div>
-                 <div className="flex items-center gap-2">
-                   <span className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">Span Length:</span>
-                   <input type="range" min="100" max="5000" step="100" value={activeLength} onChange={e => setActiveLength(Number(e.target.value))} className="w-24 accent-amber-500" />
-                   <span className="font-mono font-bold text-white ml-1">{activeLength} mm</span>
-                 </div>
-                 <div className="flex items-center gap-2 border-l border-white/10 pl-6">
-                   <span className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">Cross Section:</span>
-                   <select value={shape} onChange={e => setShape(e.target.value as "round"|"square")} className="bg-transparent text-white font-bold outline-none cursor-pointer">
-                     <option value="round" className="bg-[#111]">Round</option>
-                     <option value="square" className="bg-[#111]">Square</option>
-                   </select>
-                   <input type="range" min="5" max="100" step="1" value={activeDimension} onChange={e => setActiveDimension(Number(e.target.value))} className="w-24 accent-amber-500 ml-2" />
-                   <span className="font-mono font-bold text-white ml-1">{activeDimension} mm</span>
-                 </div>
-               </div>
-            </div>
+            {/* No Global Context Bar anymore, controls moved to specific sections */}
 
             <div className="max-w-6xl mx-auto px-6 pt-16 space-y-32">
               
-              {/* SECTION 01: Candidates */}
-              <ScrollSection title="01 / Candidates" subtitle="AI-Recommended Grades">
+              {/* SECTION: Candidates */}
+              <ScrollSection title="RECOMMENDATIONS" subtitle="What we recommend">
                 <div className="mb-8">
                   <p className="text-xl text-slate-300 font-light leading-relaxed mb-6">
                     Based on your requirements, we've shortlisted these stainless steel grades. 
@@ -304,8 +289,8 @@ export default function Home() {
                 </div>
               </ScrollSection>
 
-              {/* SECTION 02: Selected Grade Deep Dive (Radar + AI Notes) */}
-              <ScrollSection title="02 / Performance Profile" subtitle={`Grade ${activeGrade.grade} Analysis`}>
+              {/* SECTION: Selected Grade Deep Dive (Radar + AI Notes) */}
+              <ScrollSection title="PERFORMANCE PROFILE" subtitle={`Grade ${activeGrade.grade} Analysis`}>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
                   <div className="order-2 lg:order-1 relative">
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-amber-500/5 rounded-full blur-3xl -z-10" />
@@ -339,16 +324,41 @@ export default function Home() {
                 </div>
               </ScrollSection>
 
-              {/* SECTION 03: Bending Physics */}
-              <ScrollSection title="03 / Structural Deflection" subtitle="3-Point Bending Simulation">
+              {/* SECTION: Bending Physics */}
+              <ScrollSection title="STRUCTURAL DEFLECTION" subtitle="3-Point Bending Simulation">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
                   <div className="lg:col-span-5 space-y-6">
                     <h3 className="text-3xl font-bold tracking-tight text-white">Flexibility & Yielding</h3>
                     <p className="text-slate-400 font-light leading-relaxed text-lg">
-                      Visualizing the elastic curve of a {activeLength}mm span under a central point load. 
-                      The beam color indicates internal bending stress relative to the material's yield point.
+                      Visualizing the elastic curve of a span under a central point load. 
+                      Adjust the physical dimensions below to see how geometry affects stiffness.
                     </p>
-                    <ul className="space-y-3 text-sm text-slate-500">
+
+                    {/* Parameters Control Panel for Bending */}
+                    <div className="bg-[#18181b] border border-white/5 rounded-2xl p-5 space-y-4 shadow-inner">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Test Parameters</h4>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-semibold text-slate-400">Span Length (mm)</span>
+                          <span className="text-sm font-mono font-bold text-white">{activeLength}</span>
+                        </div>
+                        <input type="range" min="100" max="5000" step="10" value={activeLength} onChange={e => setActiveLength(Number(e.target.value))} className="w-full accent-amber-500" />
+                        
+                        <div className="flex justify-between items-center mt-2">
+                          <span className="text-xs font-semibold text-slate-400">Cross Section</span>
+                          <div className="flex items-center gap-2">
+                            <select value={shape} onChange={e => setShape(e.target.value as "round"|"square")} className="bg-[#0a0a0c] border border-white/10 rounded px-2 py-1 text-xs font-bold text-amber-500 outline-none cursor-pointer">
+                              <option value="round">Round</option>
+                              <option value="square">Square</option>
+                            </select>
+                            <span className="text-sm font-mono font-bold text-white ml-2">{activeDimension} mm</span>
+                          </div>
+                        </div>
+                        <input type="range" min="5" max="100" step="1" value={activeDimension} onChange={e => setActiveDimension(Number(e.target.value))} className="w-full accent-amber-500" />
+                      </div>
+                    </div>
+
+                    <ul className="space-y-3 text-sm text-slate-500 pt-2">
                       <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 rounded-full bg-slate-500"/> Below 70% yield: Infinite elastic life</li>
                       <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"/> 70% - 100%: Critical stress zone</li>
                       <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 rounded-full bg-red-500"/> &gt;100%: Permanent plastic deformation</li>
@@ -363,8 +373,8 @@ export default function Home() {
                 </div>
               </ScrollSection>
 
-              {/* SECTION 04: Tensile Physics */}
-              <ScrollSection title="04 / Axial Stress" subtitle="Tensile Failure Simulation">
+              {/* SECTION: Tensile Physics */}
+              <ScrollSection title="AXIAL STRESS" subtitle="Tensile Failure Simulation">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
                   <div className="lg:col-span-6 order-2 lg:order-1 bg-[#111114] border border-white/5 rounded-3xl p-6 shadow-2xl flex justify-center">
                     <div className="w-full max-w-sm">
@@ -379,6 +389,31 @@ export default function Home() {
                     <p className="text-slate-400 font-light leading-relaxed text-lg">
                       Axial loads stress the entire cross-section uniformly. We simulate the transition from elastic stretching to plastic necking and ultimate fracture.
                     </p>
+
+                    {/* Parameters Control Panel for Tensile */}
+                    <div className="bg-[#18181b] border border-white/5 rounded-2xl p-5 space-y-4 shadow-inner mt-4">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Geometry</h4>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-semibold text-slate-400">Specimen Length (mm)</span>
+                          <span className="text-sm font-mono font-bold text-white">{activeLength}</span>
+                        </div>
+                        <input type="range" min="100" max="5000" step="10" value={activeLength} onChange={e => setActiveLength(Number(e.target.value))} className="w-full accent-amber-500" />
+                        
+                        <div className="flex justify-between items-center mt-2">
+                          <span className="text-xs font-semibold text-slate-400">Cross Section</span>
+                          <div className="flex items-center gap-2">
+                            <select value={shape} onChange={e => setShape(e.target.value as "round"|"square")} className="bg-[#0a0a0c] border border-white/10 rounded px-2 py-1 text-xs font-bold text-amber-500 outline-none cursor-pointer">
+                              <option value="round">Round</option>
+                              <option value="square">Square</option>
+                            </select>
+                            <span className="text-sm font-mono font-bold text-white ml-2">{activeDimension} mm</span>
+                          </div>
+                        </div>
+                        <input type="range" min="5" max="100" step="1" value={activeDimension} onChange={e => setActiveDimension(Number(e.target.value))} className="w-full accent-amber-500" />
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4 mt-8">
                        <MetricCard label="Yield Load (Axial)" value={`${activePhysics.yield_load_kg.toLocaleString()} kg`} highlight />
                        <MetricCard label="Fracture Load" value={`${activePhysics.fracture_load_kg.toLocaleString()} kg`} highlight />
@@ -389,8 +424,8 @@ export default function Home() {
                 </div>
               </ScrollSection>
 
-              {/* SECTION 05: Corrosion */}
-              <ScrollSection title="05 / Environmental Decay" subtitle="Surface Degradation Model">
+              {/* SECTION: Corrosion */}
+              <ScrollSection title="ENVIRONMENTAL DECAY" subtitle="Surface Degradation Model">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
                   <div className="lg:col-span-5 space-y-6">
                     <h3 className="text-3xl font-bold tracking-tight text-white">The Test of Time</h3>

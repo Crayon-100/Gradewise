@@ -97,28 +97,60 @@ function lerpColor(a: string, b: string, t: number): string {
 
 export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }: Props) {
   const [env, setEnv]   = useState<EnvId>("indoor");
+  const [humidity, setHumidity] = useState(50);
   const [year, setYear] = useState(0);
 
-  const activeEnv = ENVIRONMENTS.find((e) => e.id === env)!;
-  const pren      = GRADE_PREN[gradeLabel] ?? 18;
+  const pren = GRADE_PREN[gradeLabel] ?? 18;
+
+  // Determine environment profile based on humidity (0-100)
+  const envProfile = useMemo(() => {
+    if (humidity < 33) {
+      return {
+        type: "indoor",
+        label: "Low Humidity / Dry",
+        aggressiveness: 0.2 + (humidity / 33) * 0.3,
+        baseRateUmYr: 0.2 + (humidity / 33) * 1.5,
+        color: "#64748b",
+        description: "Like Phoenix or Riyadh — ISO C1/C2 (Controlled or dry atmosphere).",
+      };
+    } else if (humidity < 66) {
+      return {
+        type: "urban",
+        label: "Medium Humidity / Urban",
+        aggressiveness: 0.8 + ((humidity - 33) / 33) * 0.8,
+        baseRateUmYr: 4 + ((humidity - 33) / 33) * 8,
+        color: "#f59e0b",
+        description: "Like New York or London — ISO C3/C4 (Urban pollution, moderate rain).",
+      };
+    } else {
+      return {
+        type: "marine",
+        label: "High Humidity / Marine",
+        aggressiveness: 2.0 + ((humidity - 66) / 34) * 1.5,
+        baseRateUmYr: 15 + ((humidity - 66) / 34) * 15,
+        color: "#3b82f6",
+        description: "Like Miami or Mumbai — ISO C5-M (Coastal salt spray, high moisture).",
+      };
+    }
+  }, [humidity]);
 
   // ── Core damage model ────────────────────────────────────────────────────
-  // Higher PREN slows initiation; CR (1–5) scales overall resistance
+  // Higher PREN slows initiation
   const prenFactor    = Math.max(0.1, pren / 35);           // normalised resistance
-  const damage        = Math.min(1, (year * activeEnv.aggressiveness) / (prenFactor * 35));
+  const damage        = Math.min(1, (year * envProfile.aggressiveness) / (prenFactor * 35));
   const filmIntact    = damage < 0.25;
   const filmWeakened  = damage >= 0.25 && damage < 0.60;
   const filmBroken    = damage >= 0.60;
 
-  // Corrosion rate in µm/year (simplified — affected by PREN and environment)
+  // Corrosion rate in µm/year
   const corrRateUmYr  = Math.max(0.1,
-    (activeEnv.baseRateUmYr / prenFactor) * (filmBroken ? 1.8 : filmWeakened ? 1.2 : 0.4)
+    (envProfile.baseRateUmYr / prenFactor) * (filmBroken ? 1.8 : filmWeakened ? 1.2 : 0.4)
   );
   const pitDepthUm    = Math.min(2000, corrRateUmYr * year);   // µm
   const pitDepthMm    = pitDepthUm / 1000;
 
   // Est. service life: years until damage = 0.6 (passive film breaks down)
-  const estLifeYears  = Math.round((prenFactor * 35 * 0.60) / activeEnv.aggressiveness);
+  const estLifeYears  = Math.round((prenFactor * 35 * 0.60) / envProfile.aggressiveness);
 
   // Number of visible pits (increases with damage, limited by PREN)
   const numPits       = Math.floor(damage * 48);
@@ -128,7 +160,7 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
   // Pit pixel depth in the cross-section (max ~18px visual)
   const pitDepthPx    = Math.min(18, damage * 22);
 
-  // Base steel colour transitions: polished (#b8bcc2) → tarnish (#7a6e62) → rust (#6b3a1f)
+  // Base steel colour transitions
   const steelBase = useMemo(() => {
     if (damage < 0.35) return lerpColor("#a0a4aa", "#7a6e62", damage / 0.35);
     return lerpColor("#7a6e62", "#6b3a1f", (damage - 0.35) / 0.65);
@@ -137,7 +169,7 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
   const pitSeeds     = useMemo(() => lcg(gradeLabel.charCodeAt(0) + gradeLabel.length * 31, 48), [gradeLabel]);
   const tarnishSeeds = useMemo(() => lcg(gradeLabel.charCodeAt(0) * 7 + 13, 16), [gradeLabel]);
 
-  // Cross-section pit positions (evenly spread, visible ones only)
+  // Cross-section pit positions
   const xSectionPits = pitSeeds.slice(0, Math.min(numPits, 18)).map((p, i) => ({
     xPct: 5 + (i / 17) * 90,   // evenly spaced across width
     depth: pitDepthPx * (0.5 + (p.size / 7) * 0.5),
@@ -150,31 +182,36 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
     <div className="flex flex-col gap-3">
 
       {/* ── Environment selector ── */}
-      <div className="flex gap-2">
-        {ENVIRONMENTS.map((e) => {
-          const Icon   = e.icon;
-          const active = env === e.id;
-          return (
-            <button
-              key={e.id}
-              onClick={() => { setEnv(e.id); setYear(0); }}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200"
-              style={{
-                background: active ? `${e.color}18` : "#1a1a20",
-                border: `1px solid ${active ? e.color : "#2a2a35"}`,
-                color: active ? e.color : "#52525b",
-              }}
-            >
-              <Icon className="w-3 h-3" />
-              {e.label}
-            </button>
-          );
-        })}
+      <div className="bg-[#1a1a20] rounded-xl p-4 border border-[#2a2a35] space-y-3">
+        <div className="flex justify-between items-end">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Environment Aggressiveness</div>
+            <div className="text-sm font-bold" style={{ color: envProfile.color }}>{envProfile.label}</div>
+          </div>
+          <div className="text-[10px] text-slate-400 font-medium max-w-[140px] text-right leading-tight">
+            {envProfile.description}
+          </div>
+        </div>
+        <div className="relative">
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={humidity}
+            onChange={(e) => setHumidity(Number(e.target.value))}
+            className="w-full accent-amber-500 h-1.5 bg-[#2a2a35] rounded-lg appearance-none cursor-pointer"
+          />
+          <div className="flex justify-between text-[9px] text-slate-500 mt-1.5 font-bold uppercase tracking-wider">
+            <span>Dry</span>
+            <span>Urban</span>
+            <span>Marine</span>
+          </div>
+        </div>
       </div>
 
       {/* ── Surface view ────────────────────────────────────────────── */}
       <div
-        className="relative rounded-xl overflow-hidden"
+        className="relative rounded-xl overflow-hidden mt-2"
         style={{ height: 180, border: "1px solid #2a2a35" }}
       >
         <svg
@@ -193,8 +230,8 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
             <radialGradient id="pitGrad" cx="50%" cy="50%" r="50%">
               <stop offset="0%"   stopColor="#100800" stopOpacity={0.95} />
               <stop offset="35%"  stopColor="#5c2000" stopOpacity={0.85} />
-              <stop offset="70%"  stopColor={env === "marine" ? "#8B3A12" : "#7a3010"} stopOpacity={0.6} />
-              <stop offset="100%" stopColor={env === "marine" ? "#a0522d" : "#8B4513"} stopOpacity={0} />
+              <stop offset="70%"  stopColor={envProfile.type === "marine" ? "#8B3A12" : "#7a3010"} stopOpacity={0.6} />
+              <stop offset="100%" stopColor={envProfile.type === "marine" ? "#a0522d" : "#8B4513"} stopOpacity={0} />
             </radialGradient>
 
             {/* Passive film shimmer */}
@@ -234,7 +271,7 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
               cx={p.x} cy={p.y}
               rx={p.size * 2.5 * (1 + damage * 0.8)}
               ry={p.size * 1.5 * (1 + damage * 0.8)}
-              fill={env === "marine" ? "rgba(101,60,30,0.35)" : "rgba(80,50,20,0.28)"}
+              fill={envProfile.type === "marine" ? "rgba(101,60,30,0.35)" : "rgba(80,50,20,0.28)"}
             />
           ))}
 
@@ -246,7 +283,7 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
               <g key={`pit${i}`}>
                 {/* Rust halo (staining around pit) */}
                 <circle cx={p.x} cy={p.y} r={haloR}
-                  fill={env === "marine" ? "rgba(139,69,19,0.22)" : "rgba(101,50,15,0.18)"} />
+                  fill={envProfile.type === "marine" ? "rgba(139,69,19,0.22)" : "rgba(101,50,15,0.18)"} />
                 {/* Pit itself */}
                 <circle cx={p.x} cy={p.y} r={r} fill="url(#pitGrad)" />
               </g>
@@ -254,7 +291,7 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
           })}
 
           {/* Marine-only: salt crystal deposits */}
-          {env === "marine" && damage > 0.15 && pitSeeds.slice(0, Math.floor(damage * 20)).map((p, i) => (
+          {envProfile.type === "marine" && damage > 0.15 && pitSeeds.slice(0, Math.floor(damage * 20)).map((p, i) => (
             <rect
               key={`salt${i}`}
               x={p.x + p.size * 0.3} y={p.y - p.size * 0.2}
@@ -313,9 +350,9 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
           </div>
           <div
             className="text-[8px] font-semibold px-1.5 py-0.5 rounded"
-            style={{ background: "rgba(0,0,0,0.4)", color: activeEnv.color }}
+            style={{ background: "rgba(0,0,0,0.4)", color: envProfile.color }}
           >
-            {activeEnv.label}
+            {envProfile.label}
           </div>
         </div>
       </div>
@@ -421,7 +458,7 @@ export default function CorrosionVisualizer({ gradeLabel, corrosionResistance }:
 
       {/* Environment note */}
       <p className="text-[10px] text-slate-600 text-center leading-relaxed">
-        {activeEnv.description}&nbsp;
+        {envProfile.description}&nbsp;
         Grade {gradeLabel} · CR {corrosionResistance}/5 · PREN {pren}
       </p>
     </div>

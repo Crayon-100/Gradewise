@@ -51,7 +51,10 @@ export default function GradeAccordion({
             transition={{ duration: 0.55, ease: [0.76, 0, 0.24, 1] }}
             className="relative overflow-hidden rounded-xl cursor-pointer select-none"
             style={{ minWidth: 64 }}
-            onMouseEnter={() => setHoveredIdx(i)}
+            onMouseEnter={() => {
+              setHoveredIdx(i);
+              onSelect(i);
+            }}
             onMouseLeave={() => setHoveredIdx(null)}
             onClick={() => onSelect(i)}
           >
