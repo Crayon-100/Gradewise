@@ -157,6 +157,13 @@ class GradeRecommendation(BaseModel):
     uns_no: str
     series: str
     type: str
+    # Raw material properties for client-side live recalculation
+    yield_strength_mpa: float
+    tensile_strength_mpa: float
+    youngs_modulus_gpa: float
+    elongation_pct: float
+    density_kg_m3: float
+    # General metrics
     corrosion_resistance: int
     cost_tier: int
     formability: int
@@ -167,7 +174,7 @@ class GradeRecommendation(BaseModel):
     # AI-generated text (plain English only — no numbers)
     ai_explanation: str
     trade_off_notes: str
-    # Deterministic physics outputs
+    # Deterministic physics outputs (initial values)
     physics: PhysicsNumbers
 
 
@@ -398,6 +405,11 @@ def recommend(req: RecommendRequest):
                 uns_no=grade_data["uns_no"],
                 series=grade_data["series"],
                 type=grade_data["type"],
+                yield_strength_mpa=grade_data["yield_strength_mpa"],
+                tensile_strength_mpa=grade_data["tensile_strength_mpa"],
+                youngs_modulus_gpa=grade_data["youngs_modulus_gpa"],
+                elongation_pct=grade_data.get("elongation_pct", 40), # Fallback if missing
+                density_kg_m3=grade_data["density_kg_m3"],
                 corrosion_resistance=grade_data["corrosion_resistance"],
                 cost_tier=grade_data["cost_tier"],
                 formability=grade_data["formability"],
@@ -406,7 +418,7 @@ def recommend(req: RecommendRequest):
                 max_service_temp_c=grade_data["max_service_temp_c"],
                 typical_applications=grade_data["typical_applications"],
                 ai_explanation=ai_explanation,
-                trade_off_notes=grade_data["trade_off_notes"],  # from JSON, not AI
+                trade_off_notes=grade_data["trade_off_notes"],
                 physics=physics,
             )
         )
