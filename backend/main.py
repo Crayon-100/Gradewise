@@ -19,8 +19,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from google import genai
-from google.genai import types
+from groq import Groq
 from pydantic import BaseModel, Field
 
 from engine.calculations import calc_rod_properties
@@ -31,10 +30,10 @@ from engine.calculations import calc_rod_properties
 
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not GROQ_API_KEY:
     raise RuntimeError(
-        "GEMINI_API_KEY is not set. Add it to your .env file or Render environment."
+        "GROQ_API_KEY is not set. Add it to your .env file or Render environment."
     )
 
 # Resolve grades.json relative to this file so it works from any cwd
@@ -49,8 +48,8 @@ with open(_GRADES_PATH, "r", encoding="utf-8") as _f:
 # e.g. "316" → {...}, "2205 (Duplex)" → {...}
 GRADES_BY_LABEL: dict[str, dict] = {g["grade"]: g for g in GRADES}
 
-# Initialise Gemini client (uses GEMINI_API_KEY automatically from env)
-_gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+# Initialise Groq client
+_groq_client = Groq(api_key=GROQ_API_KEY)
 
 # ---------------------------------------------------------------------------
 # FastAPI app
@@ -179,43 +178,11 @@ class RecommendResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Gemini structured output schema for the AI shortlist step
-# ---------------------------------------------------------------------------
-
-# This schema tells Gemini exactly what JSON to return.
-# Critically: it only asks for grade labels and text — no numbers.
-_GEMINI_RESPONSE_SCHEMA = {
-    "type": "ARRAY",
-    "minItems": 2,
-    "maxItems": 3,
-    "items": {
-        "type": "OBJECT",
-        "required": ["grade", "ai_explanation"],
-        "properties": {
-            "grade": {
-                "type": "STRING",
-                "description": (
-                    "Exact grade label as it appears in the grades dataset, "
-                    "e.g. '316' or '2205 (Duplex)'."
-                ),
-            },
-            "ai_explanation": {
-                "type": "STRING",
-                "description": (
-                    "2-4 sentences in plain English explaining WHY this grade "
-                    "suits the user's need and what the key trade-offs are. "
-                    "Do NOT include any numbers — the application will add "
-                    "calculated values separately."
-                ),
-            },
-        },
-    },
-}
 
 
 def _build_prompt(user_need: str, diameter_mm: float, length_mm: float) -> str:
     """
-    Build the Gemini prompt. Embedding the full grades.json ensures the model
+    Build the Groq prompt. Embedding the full grades.json ensures the model
     reasons only from real data and cannot hallucinate grades or properties.
     """
     grades_json_str = json.dumps(GRADES, indent=2)
@@ -226,8 +193,7 @@ TASK
 ----
 A user needs help choosing a Jindal Stainless steel grade for their application.
 Shortlist exactly 2 or 3 candidate grades from the dataset below that best match
-the user's stated need. Explain in plain English why each grade is a good fit and
-what they give up by choosing it.
+the user's stated need.
 
 USER NEED
 ---------
@@ -242,10 +208,11 @@ RULES (strictly enforced)
 --------------------------
 1. Only recommend grades that appear in the dataset below — never invent grades.
 2. Do NOT include any numbers in your ai_explanation — no MPa, no kg, no mm values.
-   The application will attach all physics numbers separately from its own engine.
-3. Write ai_explanation for a non-engineer audience (fabricator, buyer, first-timer).
+3. Write ai_explanation for a non-engineer audience.
 4. Cover the real trade-offs: what you gain AND what you give up with each grade.
-5. Return between 2 and 3 grades — not more, not fewer.
+5. You MUST output a JSON object with a single key "recommendations".
+6. The value of "recommendations" must be an array of exactly 2 or 3 objects.
+7. Each object must have exactly two keys: "grade" (the exact label from the dataset) and "ai_explanation" (your plain English text).
 
 GRADES DATASET
 --------------
@@ -317,57 +284,42 @@ def recommend(req: RecommendRequest):
       5. Assemble and return the combined JSON response.
     """
 
-    # Step 1 & 2: Ask Gemini to shortlist grades (text only, no numbers)
+    # Ask Groq to shortlist grades (text only, no numbers)
     prompt = _build_prompt(req.user_need, req.diameter_mm, req.length_mm)
 
-    # Google's servers for 3.6-flash occasionally throw 503 High Demand errors on the free tier.
-    # We will try up to 3 times with a small delay.
-    import time
-    from google.genai.errors import APIError
-
-    max_retries = 3
-    ai_response = None
-    
-    for attempt in range(max_retries):
-        try:
-            ai_response = _gemini_client.models.generate_content(
-                model="gemini-3.6-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_json_schema=_GEMINI_RESPONSE_SCHEMA,
-                    temperature=0.3,
-                    max_output_tokens=1024,
-                ),
-            )
-            break  # Success! Exit the retry loop
-        except APIError as exc:
-            if attempt < max_retries - 1:
-                time.sleep(2)  # Wait 2 seconds before retrying
-                continue
-            raise HTTPException(
-                status_code=502,
-                detail=f"Gemini API call failed after 3 attempts: {exc}",
-            )
-        except Exception as exc:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Gemini API call failed: {exc}",
-            )
+    try:
+        chat_completion = _groq_client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            model="llama-3.3-70b-versatile",
+            temperature=0.3,
+            response_format={"type": "json_object"},
+        )
+        ai_text = chat_completion.choices[0].message.content
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Groq API call failed: {exc}",
+        )
 
     # Parse the structured JSON the model returned
     try:
-        ai_picks: list[dict] = json.loads(ai_response.text)
+        parsed_json = json.loads(ai_text)
+        ai_picks: list[dict] = parsed_json.get("recommendations", [])
     except (json.JSONDecodeError, AttributeError) as exc:
         raise HTTPException(
             status_code=502,
-            detail=f"Gemini returned unparseable JSON: {exc}. Raw: {getattr(ai_response, 'text', '—')}",
+            detail=f"Groq returned unparseable JSON: {exc}. Raw: {ai_text}",
         )
 
     if not isinstance(ai_picks, list) or not ai_picks:
         raise HTTPException(
             status_code=502,
-            detail="Gemini returned an empty shortlist.",
+            detail="Groq returned an empty shortlist.",
         )
 
     # Step 3 & 4: For each AI pick, look up real grade data and run physics
