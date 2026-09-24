@@ -3,9 +3,13 @@
 /**
  * GradeWise — Main Page
  * ======================
- * App state machine:
+ * Startup flow:
+ *   1. DoubleStairsIntro plays on first mount (white screen → double stairs → reveal)
+ *   2. Once intro finishes, showIntro=false and the intake form fades in
+ *
+ * App state machine (after intro):
  *   "intake"  → conversational search form
- *   "loading" → DoubleStairsPreloader covers screen while API call runs
+ *   "loading" → inline spinner on the Analyze button; no full-screen overlay
  *   "results" → full dashboard: accordion cards, radar chart, physics visualizers
  */
 
@@ -19,7 +23,7 @@ import {
 import { getRecommendations, GradeRecommendation, RecommendResponse } from "../lib/api";
 import { calculatePhysics } from "../lib/physics";
 import { HoverBorderGradient } from "../components/ui/hover-border-gradient";
-import DoubleStairsPreloader from "../components/DoubleStairsPreloader";
+import DoubleStairsIntro from "../components/DoubleStairsPreloader";
 import GradeAccordion from "../components/GradeAccordion";
 import RadarChart from "../components/RadarChart";
 import BendingVisualizer from "../components/BendingVisualizer";
@@ -43,6 +47,9 @@ type VisualTab = typeof VISUAL_TABS[number]["id"];
 
 // ─── Root component ────────────────────────────────────────────────────────────
 export default function Home() {
+  // ── Intro: plays once on page load ──
+  const [showIntro, setShowIntro] = useState(true);
+
   // ── App state ──
   const [appState, setAppState] = useState<"intake" | "loading" | "results">("intake");
   const [error, setError] = useState<string | null>(null);
@@ -103,8 +110,7 @@ export default function Home() {
         setActiveDimension(finalDim);
         setActiveLength(finalLen);
         setActiveGradeIdx(0);
-        // Brief hold so the preloader exit animation looks intentional
-        setTimeout(() => setAppState("results"), 400);
+        setAppState("results");
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Request failed";
         setError(msg);
@@ -119,12 +125,13 @@ export default function Home() {
 
   return (
     <>
-      {/* ─── Double Stairs Preloader ─────────────────────────────────────── */}
-      <DoubleStairsPreloader isVisible={appState === "loading"} />
+      {/* ─── Cinematic page-load intro (plays once, then disappears) ─── */}
+      {showIntro && (
+        <DoubleStairsIntro onComplete={() => setShowIntro(false)} />
+      )}
 
-      {/* ─── App shell ──────────────────────────────────────────────────── */}
+      {/* ─── App shell (rendered beneath intro, fades in after it) ─── */}
       <div className="min-h-screen flex flex-col" style={{ background: "var(--gs-bg)" }}>
-        {/* Header */}
         <Header onLogoClick={() => setAppState("intake")} showBack={appState === "results"} />
 
         <main className="flex-1">
@@ -170,7 +177,6 @@ export default function Home() {
           </AnimatePresence>
         </main>
 
-        {/* "Powered by Jindal Stainless" — always bottom-right, like fast.com */}
         <PoweredBy />
       </div>
     </>
