@@ -50,8 +50,10 @@ export default function Home() {
   // ── Intro: plays once on page load ──
   const [showIntro, setShowIntro] = useState(true);
 
-  // ── App state ──
-  const [appState, setAppState] = useState<"intake" | "loading" | "results">("intake");
+  // ── App state: ONLY "intake" or "results" — loading is a separate boolean
+  //    so it never triggers AnimatePresence / motion re-renders on the intake view ──
+  const [appState, setAppState] = useState<"intake" | "results">("intake");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // ── Form state ──
@@ -92,13 +94,13 @@ export default function Home() {
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!userNeed.trim()) return;
+      if (!userNeed.trim() || isSubmitting) return;
 
       const finalDim = dimensionStr ? parseFloat(dimensionStr) : 20.0;
       const finalLen = lengthStr ? parseFloat(lengthStr) : 1200.0;
 
       setError(null);
-      setAppState("loading");
+      setIsSubmitting(true); // ← only this changes; appState stays "intake"
 
       try {
         const data = await getRecommendations({
@@ -110,14 +112,15 @@ export default function Home() {
         setActiveDimension(finalDim);
         setActiveLength(finalLen);
         setActiveGradeIdx(0);
-        setAppState("results");
+        setAppState("results"); // ← AnimatePresence transitions only here
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Request failed";
         setError(msg);
-        setAppState("intake");
+      } finally {
+        setIsSubmitting(false);
       }
     },
-    [userNeed, dimensionStr, lengthStr]
+    [userNeed, dimensionStr, lengthStr, isSubmitting]
   );
 
   const activeGrade: GradeRecommendation | undefined =
@@ -130,13 +133,16 @@ export default function Home() {
         <DoubleStairsIntro onComplete={() => setShowIntro(false)} />
       )}
 
-      {/* ─── App shell (rendered beneath intro, fades in after it) ─── */}
+      {/* ─── App shell ─── */}
       <div className="min-h-screen flex flex-col" style={{ background: "var(--gs-bg)" }}>
-        <Header onLogoClick={() => setAppState("intake")} showBack={appState === "results"} />
+        <Header
+          onLogoClick={() => setAppState("intake")}
+          showBack={appState === "results"}
+        />
 
         <main className="flex-1">
           <AnimatePresence mode="wait">
-            {appState !== "results" ? (
+            {appState === "intake" ? (
               <motion.div
                 key="intake"
                 initial={{ opacity: 0 }}
@@ -149,7 +155,7 @@ export default function Home() {
                   shape={shape} setShape={setShape}
                   dimensionStr={dimensionStr} setDimensionStr={setDimensionStr}
                   lengthStr={lengthStr} setLengthStr={setLengthStr}
-                  isLoading={appState === "loading"}
+                  isLoading={isSubmitting}
                   error={error}
                   onSubmit={handleSubmit}
                 />
