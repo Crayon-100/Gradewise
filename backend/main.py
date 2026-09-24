@@ -295,7 +295,7 @@ def recommend(req: RecommendRequest):
                     "content": prompt,
                 }
             ],
-            model="llama-3.3-70b-versatile",
+            model="qwen/qwen3.8-27b",
             temperature=0.3,
             response_format={"type": "json_object"},
         )
