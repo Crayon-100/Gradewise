@@ -118,13 +118,9 @@ class RecommendRequest(BaseModel):
         min_length=5,
         max_length=500,
     )
-    shape: str = Field(
-        default="round",
-        description="Shape of the rod (round or square)",
-    )
-    dimension_mm: float = Field(
+    diameter_mm: float = Field(
         default=20.0,
-        description="Rod outer diameter (or side for square) in millimetres.",
+        description="Rod outer diameter in millimetres.",
         ge=1.0,
         le=200.0,
     )
@@ -134,6 +130,7 @@ class RecommendRequest(BaseModel):
         ge=50.0,
         le=10_000.0,
     )
+
 
 class PhysicsNumbers(BaseModel):
     """All numbers come from calculations.py — the AI never produces these."""
@@ -160,13 +157,6 @@ class GradeRecommendation(BaseModel):
     uns_no: str
     series: str
     type: str
-    # Raw material properties for client-side live recalculation
-    yield_strength_mpa: float
-    tensile_strength_mpa: float
-    youngs_modulus_gpa: float
-    elongation_pct: float
-    density_kg_m3: float
-    # General metrics
     corrosion_resistance: int
     cost_tier: int
     formability: int
@@ -177,14 +167,13 @@ class GradeRecommendation(BaseModel):
     # AI-generated text (plain English only — no numbers)
     ai_explanation: str
     trade_off_notes: str
-    # Deterministic physics outputs (initial values)
+    # Deterministic physics outputs
     physics: PhysicsNumbers
 
 
 class RecommendResponse(BaseModel):
     user_need: str
-    shape: str
-    dimension_mm: float
+    diameter_mm: float
     length_mm: float
     recommendations: list[GradeRecommendation]
 
@@ -224,7 +213,7 @@ _GEMINI_RESPONSE_SCHEMA = {
 }
 
 
-def _build_prompt(user_need: str, shape: str, dimension_mm: float, length_mm: float) -> str:
+def _build_prompt(user_need: str, diameter_mm: float, length_mm: float) -> str:
     """
     Build the Gemini prompt. Embedding the full grades.json ensures the model
     reasons only from real data and cannot hallucinate grades or properties.
@@ -246,8 +235,7 @@ USER NEED
 
 ROD DIMENSIONS (for context only — do NOT calculate any numbers yourself)
 -----------------------------------
-Shape: {shape}
-Dimension: {dimension_mm} mm
+Diameter: {diameter_mm} mm
 Length:   {length_mm} mm
 
 RULES (strictly enforced)
@@ -330,11 +318,11 @@ def recommend(req: RecommendRequest):
     """
 
     # Step 1 & 2: Ask Gemini to shortlist grades (text only, no numbers)
-    prompt = _build_prompt(req.user_need, req.shape, req.dimension_mm, req.length_mm)
+    prompt = _build_prompt(req.user_need, req.diameter_mm, req.length_mm)
 
     try:
         ai_response = _gemini_client.models.generate_content(
-            model="gemini-3.6-flash",
+            model="gemini-1.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -379,12 +367,9 @@ def recommend(req: RecommendRequest):
             continue
 
         # Run the deterministic physics engine — AI never touches these numbers
-        # (For now, the backend engine still assumes circular math for the initial baseline.
-        # The frontend will overwrite this with the live interactive client-side calculator
-        # which fully supports square/round toggle!)
         rod = calc_rod_properties(
             grade_data=grade_data,
-            diameter_mm=req.dimension_mm,
+            diameter_mm=req.diameter_mm,
             length_mm=req.length_mm,
         )
 
@@ -413,11 +398,6 @@ def recommend(req: RecommendRequest):
                 uns_no=grade_data["uns_no"],
                 series=grade_data["series"],
                 type=grade_data["type"],
-                yield_strength_mpa=grade_data["yield_strength_mpa"],
-                tensile_strength_mpa=grade_data["tensile_strength_mpa"],
-                youngs_modulus_gpa=grade_data["youngs_modulus_gpa"],
-                elongation_pct=grade_data.get("elongation_pct", 40), # Fallback if missing
-                density_kg_m3=grade_data["density_kg_m3"],
                 corrosion_resistance=grade_data["corrosion_resistance"],
                 cost_tier=grade_data["cost_tier"],
                 formability=grade_data["formability"],
@@ -426,7 +406,7 @@ def recommend(req: RecommendRequest):
                 max_service_temp_c=grade_data["max_service_temp_c"],
                 typical_applications=grade_data["typical_applications"],
                 ai_explanation=ai_explanation,
-                trade_off_notes=grade_data["trade_off_notes"],
+                trade_off_notes=grade_data["trade_off_notes"],  # from JSON, not AI
                 physics=physics,
             )
         )
@@ -442,8 +422,7 @@ def recommend(req: RecommendRequest):
 
     return RecommendResponse(
         user_need=req.user_need,
-        shape=req.shape,
-        dimension_mm=req.dimension_mm,
+        diameter_mm=req.diameter_mm,
         length_mm=req.length_mm,
         recommendations=recommendations,
     )
