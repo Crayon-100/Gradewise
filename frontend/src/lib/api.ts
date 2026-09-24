@@ -10,7 +10,8 @@ export const BACKEND_URL =
 
 export interface RecommendRequest {
   user_need: string;
-  diameter_mm: number;
+  shape: "round" | "square";
+  dimension_mm: number;
   length_mm: number;
 }
 
@@ -35,6 +36,13 @@ export interface GradeRecommendation {
   uns_no: string;
   series: string;
   type: string;
+  // Raw material properties
+  yield_strength_mpa: number;
+  tensile_strength_mpa: number;
+  youngs_modulus_gpa: number;
+  elongation_pct: number;
+  density_kg_m3: number;
+  // General metrics
   corrosion_resistance: number;
   cost_tier: number;
   formability: number;
