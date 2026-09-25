@@ -1,109 +1,11 @@
 @import "tailwindcss";
-@plugin "tailwindcss-animate";
 
-/* ============================================================
-   Amber Slate — GradeWise Design System
-   Matches Jindal Stainless industrial colour identity:
-     Deep charcoal backgrounds + molten-amber primary accent
-   ============================================================ */
-
-:root {
-  /* ── Core backgrounds ── */
-  --gs-bg:        #0f0f11;   /* page background */
-  --gs-surface:   #18181b;   /* elevated card surface */
-  --gs-surface-2: #1e1e24;   /* deeper card (Pro panels, inputs) */
-  --gs-border:    #2a2a35;   /* subtle border */
-  --gs-border-2:  #353545;   /* slightly brighter border */
-
-  /* ── Brand accent — molten amber / forge orange ── */
-  --gs-amber:     #ea580c;
-  --gs-amber-light: #fb923c;
-  --gs-amber-glow:  rgba(234, 88, 12, 0.20);
-
-  /* ── Steel blue secondary ── */
-  --gs-blue:      #3b82f6;
-  --gs-blue-dim:  #1d4ed8;
-
-  /* ── Text hierarchy ── */
-  --gs-text-1:    #f5f5f7;   /* headings */
-  --gs-text-2:    #a1a1aa;   /* body */
-  --gs-text-3:    #52525b;   /* captions / muted */
-
-  /* ── State colours ── */
-  --gs-success:   #10b981;
-  --gs-warning:   #f59e0b;
-  --gs-danger:    #ef4444;
-
-  /* Tailwind compat */
-  --background: var(--gs-bg);
-  --foreground: var(--gs-text-1);
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-/* ── Base resets ── */
 *, *::before, *::after {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 html {
-  scroll-behavior: smooth;
-}
-
-body {
-  background: var(--gs-bg);
-  color: var(--gs-text-1);
-  font-family: var(--font-geist-sans), system-ui, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--gs-bg); }
-::-webkit-scrollbar-thumb { background: var(--gs-border-2); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--gs-amber); }
-
-/* ── Amber-theme range input ── */
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  background: var(--gs-border);
-  border-radius: 4px;
-}
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--gs-amber);
-  cursor: pointer;
-  box-shadow: 0 0 8px var(--gs-amber-glow);
-  border: 2px solid var(--gs-bg);
-}
-input[type="range"]::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--gs-amber);
-  cursor: pointer;
-  border: 2px solid var(--gs-bg);
-}
-
-/* ── Selection highlight ── */
-::selection {
-  background: var(--gs-amber-glow);
-  color: var(--gs-text-1);
-}
-
-/* ── Text glow utility ── */
-.text-amber-glow {
-  color: var(--gs-amber);
-  text-shadow: 0 0 20px var(--gs-amber-glow);
+  scroll-behavior: auto; /* Lenis handles this */
 }
