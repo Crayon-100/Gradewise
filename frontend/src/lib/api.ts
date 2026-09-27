@@ -54,11 +54,11 @@ export async function analyzePrompt(prompt: string): Promise<AIAnalysisResult> {
     }
     
     // Throw an error so the UI handles it and shows the 404 popup overlay!
-    console.error(`Backend returned HTTP ${res.status}`);
+    console.warn(`Backend returned HTTP ${res.status}`);
     throw new Error("OUT_OF_CONTEXT");
     
   } catch (error) {
-    console.error("API Error:", error);
+    console.warn("API Error:", error);
     throw error; // Throw upward to page.tsx
   }
 
