@@ -100,27 +100,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # wildcard case and only enable it when a specific origin list is active.
 # ---------------------------------------------------------------------------
 
-_frontend_url = os.getenv("FRONTEND_URL")  # set this in Render environment vars
-
-if _frontend_url:
-    # Safely strip any accidental quotes, spaces, or trailing slashes from the Render env var
-    _frontend_url = _frontend_url.strip(" '\"").rstrip('/')
-    # Restricted mode: only allow the configured frontend domain + local dev
-    _cors_origins = [
-        _frontend_url,
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
-    _cors_credentials = True
-else:
-    # Restricted mode: only allow the specific vercel origin
-    _cors_origins = ["https://gradewise-two.vercel.app"]
-    _cors_credentials = True
-
+# Open CORS for development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=_cors_credentials,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )
@@ -302,7 +286,6 @@ def health_check():
 
 
 @app.post("/recommend", response_model=RecommendResponse)
-@limiter.limit("20/minute")
 def recommend(request: Request, req: RecommendRequest):
     """
     Main recommendation endpoint.
