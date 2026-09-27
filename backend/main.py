@@ -239,6 +239,7 @@ RULES (strictly enforced)
     - "character_id" (An array of exactly 5 uppercase strings representing the grade you chose)
     - "ai_explanation" (your plain English text on why it's chosen)
     - "trade_off_notes" (explicitly state what downside this choice has directly compared to the OTHER choices in this response).
+11. CRITICAL: If the USER NEED is completely unrelated to steel, metal, materials, or structural engineering (e.g., asking about recipes, weather, politics, people), YOU MUST return an empty array for "recommendations" (i.e. {"recommendations": []}).
 
 GRADES DATASET
 --------------
@@ -336,8 +337,8 @@ def recommend(request: Request, req: RecommendRequest):
 
     if not isinstance(ai_picks, list) or not ai_picks:
         raise HTTPException(
-            status_code=502,
-            detail="Groq returned an empty shortlist.",
+            status_code=400,
+            detail="OUT_OF_CONTEXT",
         )
 
     # Step 3 & 4: For each AI pick, look up real grade data and run physics

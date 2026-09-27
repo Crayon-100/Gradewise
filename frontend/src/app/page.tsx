@@ -139,7 +139,7 @@ export default function Home() {
       <div className="relative z-10 w-full">
         
         <AnimatePresence mode="wait">
-          {mounted && appState === "idle" && (
+          {mounted && (appState === "idle" || appState === "error") && (
             <motion.div 
               key="hero"
               exit={{ opacity: 0 }}
@@ -166,15 +166,20 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-        {appState === "error" && (
-          <div className="w-full min-h-screen flex flex-col items-center justify-center pt-20 px-4 bg-black/60 backdrop-blur-md">
-            <div className="flex flex-col items-center justify-center">
-              <p className="text-[#C62828] font-monument uppercase tracking-widest mb-4">Error: Out of Context</p>
+                {appState === "error" && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+            <div className="bg-[#0B1222] border border-[#334155] rounded-2xl p-8 max-w-md w-full shadow-2xl relative flex flex-col items-center text-center">
+              <button onClick={() => setAppState("idle")} className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors">
+                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+              <div className="w-12 h-12 text-[#FF4136] mb-4 flex items-center justify-center border-2 border-[#FF4136] rounded-full font-bold text-xl">!</div>
+              <h2 className="text-2xl font-instrument font-bold text-white mb-2">Error 404</h2>
+              <p className="text-white/70 font-suisse mb-6">We couldn't understand your request. Please ensure you are asking about steel grades or materials.</p>
               <button 
                 onClick={() => setAppState("idle")}
-                className="bg-[#0B1222] border border-[#334155] text-[#C7CDD4] font-suisse px-6 py-2 rounded-lg hover:border-[#FF851B] hover:text-[#FF851B] transition-colors"
+                className="bg-[#0074D9] text-white font-monument uppercase tracking-widest text-xs px-6 py-3 rounded-lg hover:bg-[#66B2FF] transition-colors"
               >
-                Reset Terminal
+                Close
               </button>
             </div>
           </div>
