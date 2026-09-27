@@ -214,13 +214,23 @@ Length:   {length_mm} mm
 
 RULES (strictly enforced)
 --------------------------
-1. Only recommend grades that appear in the dataset below — never invent grades.
-2. Do NOT include any numbers in your ai_explanation — no MPa, no kg, no mm values.
-3. Write ai_explanation for a non-engineer audience.
-4. Cover the real trade-offs: what you gain AND what you give up with each grade.
-5. You MUST output a JSON object with a single key "recommendations".
-6. The value of "recommendations" must be an array of exactly 2 or 3 objects.
-7. Each object must have exactly two keys: "grade" (the exact label from the dataset) and "ai_explanation" (your plain English text).
+1. NEVER output a grade name directly! We use a deterministic character mapping system.
+2. Select the matching grade by outputting its exact 5-string 'character_id' combination from the dataset.
+3. The valid semantic strings are: ["STRENGTH", "CORROSION", "HEAT", "ECONOMY", "WELDING", "FORMING", "HARDNESS"].
+4. You MUST completely ignore and NEVER output the following 4 unused combinations:
+   - ["CORROSION", "HEAT", "ECONOMY", "FORMING", "HARDNESS"]
+   - ["CORROSION", "HEAT", "WELDING", "FORMING", "HARDNESS"]
+   - ["CORROSION", "ECONOMY", "WELDING", "FORMING", "HARDNESS"]
+   - ["HEAT", "ECONOMY", "WELDING", "FORMING", "HARDNESS"]
+5. Do NOT include any numbers in your ai_explanation — no MPa, no kg, no mm values.
+6. Write ai_explanation for a non-engineer audience.
+7. Cover the real trade-offs: what you gain AND what you give up with each grade.
+8. You MUST output a JSON object with a single key "recommendations".
+9. The value of "recommendations" must be an array of exactly 2 or 3 objects.
+10. Each object must have exactly three keys: 
+    - "character_id" (An array of exactly 5 uppercase strings representing the grade you chose)
+    - "ai_explanation" (your plain English text on why it's chosen)
+    - "trade_off_notes" (explicitly state what downside this choice has directly compared to the OTHER choices in this response).
 
 GRADES DATASET
 --------------
@@ -232,29 +242,19 @@ GRADES DATASET
 # Helper: match AI-returned grade label to our dataset
 # ---------------------------------------------------------------------------
 
-def _find_grade(label: str) -> dict | None:
+def _find_grade_by_character_id(char_id: list) -> dict | None:
     """
-    Look up a grade by its label. Try exact match first, then case-insensitive,
-    then a normalised partial match (handles slight whitespace differences).
+    Look up a grade by its deterministic 5-string combination.
     Returns None if not found.
     """
-    # 1. Exact match
-    if label in GRADES_BY_LABEL:
-        return GRADES_BY_LABEL[label]
-
-    # 2. Case-insensitive match
-    label_lower = label.strip().lower()
-    for key, grade in GRADES_BY_LABEL.items():
-        if key.lower() == label_lower:
-            return grade
-
-    # 3. Normalised match — strip spaces & brackets for robustness
-    def _normalise(s: str) -> str:
-        return re.sub(r"[\s()\-]", "", s).lower()
-
-    label_norm = _normalise(label)
-    for key, grade in GRADES_BY_LABEL.items():
-        if _normalise(key) == label_norm:
+    if not isinstance(char_id, list) or len(char_id) != 5:
+        return None
+        
+    char_id_sorted = sorted([str(s).upper() for s in char_id])
+    
+    for grade in GRADES:
+        g_char_id = grade.get("character_id")
+        if isinstance(g_char_id, list) and sorted([str(s).upper() for s in g_char_id]) == char_id_sorted:
             return grade
 
     return None
@@ -305,6 +305,7 @@ def recommend(req: RecommendRequest):
             ],
             model="qwen/qwen3.8-27b",
             temperature=0.3,
+            max_tokens=600,
             response_format={"type": "json_object"},
         )
         ai_text = chat_completion.choices[0].message.content
@@ -334,15 +335,17 @@ def recommend(req: RecommendRequest):
     recommendations: list[GradeRecommendation] = []
 
     for pick in ai_picks:
-        grade_label: str = pick.get("grade", "").strip()
+        char_id: list[str] = pick.get("character_id", [])
         ai_explanation: str = pick.get("ai_explanation", "").strip()
+        trade_off_notes: str = pick.get("trade_off_notes", "").strip()
 
-        # Look up grade in our dataset (AI cannot fabricate this)
-        grade_data = _find_grade(grade_label)
+        # Look up grade via deterministic character_id
+        grade_data = _find_grade_by_character_id(char_id)
         if grade_data is None:
-            # Skip unknown grades rather than crashing — shouldn't happen with
-            # the strict prompt, but defensive code matters for a live demo
+            # The AI hallucinated a bad combination or returned a dead combo
             continue
+            
+        grade_label = grade_data["grade"]
 
         # Run the deterministic physics engine — AI never touches these numbers
         rod = calc_rod_properties(
@@ -390,7 +393,7 @@ def recommend(req: RecommendRequest):
                 max_service_temp_c=grade_data["max_service_temp_c"],
                 typical_applications=grade_data["typical_applications"],
                 ai_explanation=ai_explanation,
-                trade_off_notes=grade_data["trade_off_notes"],
+                trade_off_notes=trade_off_notes,
                 physics=physics,
             )
         )

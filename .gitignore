@@ -54,3 +54,6 @@ Thumbs.db
 
 # Vercel
 .vercel/
+
+# Agent skills
+.agent/

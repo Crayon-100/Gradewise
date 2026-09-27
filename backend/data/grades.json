@@ -17,7 +17,15 @@
     "weldability": "Good",
     "cost_tier": 2,
     "typical_applications": "Budget kitchenware, railway coach panels, trims, general fabrication",
-    "trade_off_notes": "Cheapest austenitic option here; noticeably weaker corrosion resistance than 304 — keep it indoors/dry."
+    "composition": "An austenitic stainless steel that substitutes manganese and nitrogen for a significant portion of the nickel found in 300-series grades. This lowers the cost while maintaining high yield strength, but slightly reduces overall corrosion resistance.",
+    "speciality": "Cost-effective high yield strength.",
+    "character_id": [
+      "STRENGTH",
+      "CORROSION",
+      "HEAT",
+      "ECONOMY",
+      "WELDING"
+    ]
   },
   {
     "grade": "202",
@@ -37,7 +45,15 @@
     "weldability": "Good",
     "cost_tier": 2,
     "typical_applications": "Utensils, railway coach bodies, general fabrication, decorative trim",
-    "trade_off_notes": "Jindal's high-volume low-cost grade (variants: 202 JSL AUS, 202 DDQ); good value, but 304-level looks with 200-series corrosion resistance."
+    "composition": "Similar to 201 but with a slightly higher nickel and manganese content. This provides marginally better corrosion resistance and toughness than 201 while remaining a cost-effective alternative to standard 304.",
+    "speciality": "Cost-effective general purpose toughness.",
+    "character_id": [
+      "STRENGTH",
+      "CORROSION",
+      "HEAT",
+      "ECONOMY",
+      "FORMING"
+    ]
   },
   {
     "grade": "301",
@@ -57,7 +73,15 @@
     "weldability": "Good",
     "cost_tier": 3,
     "typical_applications": "Springs, structural trim, railway car structures, conveyor components",
-    "trade_off_notes": "Work-hardens well for extra spring-back strength; a step up in corrosion resistance from the 200-series."
+    "composition": "Contains slightly lower chromium and nickel than 304, intentionally designed to undergo rapid work hardening during cold forming. This makes it ideal for high-strength structural applications and springs.",
+    "speciality": "Extreme work-hardening for springs and structural flex.",
+    "character_id": [
+      "STRENGTH",
+      "CORROSION",
+      "HEAT",
+      "ECONOMY",
+      "HARDNESS"
+    ]
   },
   {
     "grade": "304",
@@ -77,7 +101,15 @@
     "weldability": "Excellent",
     "cost_tier": 3,
     "typical_applications": "Kitchen equipment, architecture, food processing, general fabrication, railings",
-    "trade_off_notes": "The all-purpose baseline grade — balanced cost, corrosion resistance and strength; most other grades get compared against this one."
+    "composition": "The industry standard austenitic grade containing roughly 18% chromium and 8% nickel. It offers an excellent balance of corrosion resistance, formability, and weldability without requiring exotic alloying elements.",
+    "speciality": "The universal industry standard for balanced corrosion resistance.",
+    "character_id": [
+      "STRENGTH",
+      "CORROSION",
+      "HEAT",
+      "WELDING",
+      "FORMING"
+    ]
   },
   {
     "grade": "304L",
@@ -97,7 +129,15 @@
     "weldability": "Excellent",
     "cost_tier": 3,
     "typical_applications": "Welded pressure vessels, pharma/chemical equipment, heavy-weld assemblies",
-    "trade_off_notes": "Low-carbon 304 — slightly lower strength, but resists weld-zone corrosion where 304 wouldn't."
+    "composition": "The low-carbon version of 304 (max 0.03% C), specifically alloyed to prevent carbide precipitation at grain boundaries during welding. This preserves corrosion resistance in the heat-affected zone of heavy weldments.",
+    "speciality": "Heavy-section welding without carbide precipitation.",
+    "character_id": [
+      "STRENGTH",
+      "CORROSION",
+      "HEAT",
+      "WELDING",
+      "HARDNESS"
+    ]
   },
   {
     "grade": "316",
@@ -117,7 +157,15 @@
     "weldability": "Excellent",
     "cost_tier": 4,
     "typical_applications": "Marine hardware, chemical processing, coastal architecture, medical instruments",
-    "trade_off_notes": "Added molybdenum gives real chloride/pitting resistance over 304 — the standard pick for coastal or marine exposure, at a real cost premium."
+    "composition": "Contains 16-18% chromium, 10-14% nickel, and a critical addition of 2-3% molybdenum. The molybdenum significantly boosts resistance to pitting and crevice corrosion, particularly in chloride-rich environments like marine or de-icing salt exposure.",
+    "speciality": "Superior pitting resistance in marine and chloride environments.",
+    "character_id": [
+      "STRENGTH",
+      "CORROSION",
+      "HEAT",
+      "FORMING",
+      "HARDNESS"
+    ]
   },
   {
     "grade": "316L",
@@ -137,7 +185,15 @@
     "weldability": "Excellent",
     "cost_tier": 4,
     "typical_applications": "Pharmaceutical/surgical equipment, offshore fittings, welded marine components",
-    "trade_off_notes": "Low-carbon 316 — the go-to for heavily welded marine or medical parts where weld-zone corrosion must be avoided."
+    "composition": "The low-carbon derivative of standard 316, heavily used in welded assemblies. The restricted carbon content eliminates the risk of weld decay while maintaining the superior molybdenum-driven chloride resistance.",
+    "speciality": "Marine-grade heavy welding without weld decay.",
+    "character_id": [
+      "STRENGTH",
+      "CORROSION",
+      "ECONOMY",
+      "WELDING",
+      "FORMING"
+    ]
   },
   {
     "grade": "321",
@@ -157,7 +213,15 @@
     "weldability": "Good",
     "cost_tier": 4,
     "typical_applications": "Exhaust manifolds, aerospace ducting, high-temperature chemical equipment",
-    "trade_off_notes": "Titanium-stabilized so it resists sensitization above ~425°C — chosen wherever 304-level corrosion resistance is needed at sustained high heat."
+    "composition": "A titanium-stabilized variation of 304. The titanium addition preferentially binds with carbon, preventing chromium carbide precipitation and allowing the steel to maintain its corrosion resistance after prolonged exposure to high temperatures.",
+    "speciality": "High-temperature stability (up to 816\u00b0C) and resistance to intergranular corrosion.",
+    "character_id": [
+      "STRENGTH",
+      "CORROSION",
+      "ECONOMY",
+      "WELDING",
+      "HARDNESS"
+    ]
   },
   {
     "grade": "309S",
@@ -177,7 +241,15 @@
     "weldability": "Good",
     "cost_tier": 4,
     "typical_applications": "Furnace parts, kilns, heat-treatment equipment, boiler baffles",
-    "trade_off_notes": "Built for sustained high-temperature oxidation resistance, not wet-environment corrosion — not the pick for outdoor/marine use."
+    "composition": "Heavily alloyed with high chromium (22-24%) and elevated nickel (12-15%) specifically for high-temperature oxidation resistance. The 'S' denotes lower carbon, improving weldability and minimizing embrittlement during thermal cycling.",
+    "speciality": "Extreme high-temperature oxidation resistance (up to 980\u00b0C).",
+    "character_id": [
+      "STRENGTH",
+      "CORROSION",
+      "ECONOMY",
+      "FORMING",
+      "HARDNESS"
+    ]
   },
   {
     "grade": "310S",
@@ -197,7 +269,15 @@
     "weldability": "Good",
     "cost_tier": 5,
     "typical_applications": "Furnace components, radiant tubes, heat exchangers, incinerator liners",
-    "trade_off_notes": "One of the highest continuous-service temperature ratings here — priced accordingly."
+    "composition": "An extreme high-temperature grade boasting 25% chromium and 20% nickel. This massive alloy content provides exceptional resistance to oxidation and scaling in continuous service up to 1150\u00b0C.",
+    "speciality": "Ultimate high-temperature scaling resistance (up to 1150\u00b0C).",
+    "character_id": [
+      "STRENGTH",
+      "CORROSION",
+      "WELDING",
+      "FORMING",
+      "HARDNESS"
+    ]
   },
   {
     "grade": "904L",
@@ -217,7 +297,15 @@
     "weldability": "Good",
     "cost_tier": 5,
     "typical_applications": "Sulfuric acid handling, flue-gas desulfurization, aggressive-chloride chemical/offshore plants",
-    "trade_off_notes": "The most corrosion-resistant grade in this sheet, and the priciest — reserve it for environments that genuinely defeat 316L."
+    "composition": "A super-austenitic stainless steel with very high nickel (25%), chromium (20%), and molybdenum (4.5%), plus an addition of copper. This exotic composition provides phenomenal resistance to strong reducing acids like sulfuric acid and aggressive chloride attacks.",
+    "speciality": "Extreme resistance to strong reducing acids (e.g. sulfuric) and severe chlorides.",
+    "character_id": [
+      "STRENGTH",
+      "HEAT",
+      "ECONOMY",
+      "WELDING",
+      "FORMING"
+    ]
   },
   {
     "grade": "409",
@@ -237,7 +325,15 @@
     "weldability": "Fair",
     "cost_tier": 1,
     "typical_applications": "Automotive exhaust systems, heat shields, non-critical structural trim",
-    "trade_off_notes": "The cheapest practical grade here — fine for dry heat exposure, but weaker corrosion resistance than any austenitic grade; avoid wet/salty use."
+    "composition": "A low-cost ferritic grade containing roughly 11% chromium and stabilized with titanium. It has just enough chromium to form a passive layer, making it the dominant choice for automotive exhaust systems.",
+    "speciality": "Ultra-low-cost oxidation resistance for automotive exhausts.",
+    "character_id": [
+      "STRENGTH",
+      "HEAT",
+      "ECONOMY",
+      "WELDING",
+      "HARDNESS"
+    ]
   },
   {
     "grade": "430",
@@ -257,7 +353,15 @@
     "weldability": "Fair",
     "cost_tier": 2,
     "typical_applications": "Kitchen appliance panels, automotive trim, indoor/dry architectural cladding",
-    "trade_off_notes": "Good bright finish and low cost, but lower ductility and corrosion resistance than any 300-series grade — a common indoor value-engineering swap."
+    "composition": "A straight-chromium ferritic steel (16-18% Cr) with virtually no nickel. This offers good basic corrosion resistance for mild indoor environments (like appliances) at a significantly lower cost than austenitic grades.",
+    "speciality": "Budget-friendly cosmetic resistance for indoor appliances and trim.",
+    "character_id": [
+      "STRENGTH",
+      "HEAT",
+      "ECONOMY",
+      "FORMING",
+      "HARDNESS"
+    ]
   },
   {
     "grade": "439",
@@ -277,7 +381,15 @@
     "weldability": "Good",
     "cost_tier": 2,
     "typical_applications": "Automotive exhaust, water heaters, architectural trim needing better welds than 409",
-    "trade_off_notes": "A stabilized 409/430 hybrid — better weld integrity and slightly better corrosion resistance for a modest cost step up."
+    "composition": "A ferritic grade containing around 17% chromium, dual-stabilized with titanium and niobium. This stabilization prevents intergranular corrosion after welding and dramatically improves high-temperature oxidation resistance over standard 409.",
+    "speciality": "Upgraded thermal fatigue and oxidation resistance for complex exhausts.",
+    "character_id": [
+      "STRENGTH",
+      "HEAT",
+      "WELDING",
+      "FORMING",
+      "HARDNESS"
+    ]
   },
   {
     "grade": "410",
@@ -297,7 +409,15 @@
     "weldability": "Fair",
     "cost_tier": 2,
     "typical_applications": "Cutlery, turbine blades, fasteners, pump shafts",
-    "trade_off_notes": "Can be heat-treated to high hardness, unlike anything else in this sheet — but has the weakest corrosion resistance; pick it for wear resistance, not corrosion."
+    "composition": "A martensitic stainless steel with elevated carbon and 11.5-13.5% chromium. This specific composition allows it to be hardened and tempered via heat treatment, delivering high mechanical strength and wear resistance.",
+    "speciality": "Hardenable for high mechanical wear resistance and sharp edge retention.",
+    "character_id": [
+      "STRENGTH",
+      "ECONOMY",
+      "WELDING",
+      "FORMING",
+      "HARDNESS"
+    ]
   },
   {
     "grade": "2205 (Duplex)",
@@ -317,7 +437,15 @@
     "weldability": "Good (needs care)",
     "cost_tier": 5,
     "typical_applications": "Chemical tankers, offshore platforms, pressure vessels needing high strength + corrosion resistance",
-    "trade_off_notes": "Roughly double the yield strength of 316L at similar corrosion resistance — lets you use thinner, lighter sections, but is harder to form and costs more per kg."
+    "composition": "A highly engineered alloy (22% Cr, 5% Ni, 3% Mo) that solidifies into a mixed austenitic-ferritic microstructure. This precise chemistry delivers roughly double the yield strength of 304 while offering exceptional resistance to chloride stress-corrosion cracking.",
+    "speciality": "Exceptional strength and total immunity to chloride stress-corrosion cracking.",
+    "character_id": [
+      "CORROSION",
+      "HEAT",
+      "ECONOMY",
+      "WELDING",
+      "FORMING"
+    ]
   },
   {
     "grade": "2304 (Duplex)",
@@ -337,6 +465,14 @@
     "weldability": "Good (needs care)",
     "cost_tier": 4,
     "typical_applications": "Structural/architectural members, bridges, tanks where full 2205 strength isn't needed",
-    "trade_off_notes": "A lower-alloy duplex — keeps most of 2205's strength advantage over 316L at a smaller cost premium."
+    "composition": "A 'lean duplex' containing 23% chromium and 4% nickel, but largely omitting expensive molybdenum. It achieves the signature high-strength duplex microstructure at a cost profile highly competitive with standard austenitics.",
+    "speciality": "Lean duplex offering 2205-level structural strength at a competitive price point.",
+    "character_id": [
+      "CORROSION",
+      "HEAT",
+      "ECONOMY",
+      "WELDING",
+      "HARDNESS"
+    ]
   }
 ]
