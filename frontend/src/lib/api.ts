@@ -52,9 +52,14 @@ export async function analyzePrompt(prompt: string): Promise<AIAnalysisResult> {
     if (res.ok) {
       return await res.json();
     }
-    console.error(`Backend returned HTTP ${res.status}, falling back to mock data`);
+    
+    // Throw an error so the UI handles it and shows the 404 popup overlay!
+    console.error(`Backend returned HTTP ${res.status}`);
+    throw new Error("OUT_OF_CONTEXT");
+    
   } catch (error) {
-    console.error("Backend completely unreachable, falling back to mock data:", error);
+    console.error("API Error:", error);
+    throw error; // Throw upward to page.tsx
   }
 
   // MOCK FALLBACK for development if backend is offline
