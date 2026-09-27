@@ -92,9 +92,9 @@ if _frontend_url:
     ]
     _cors_credentials = True
 else:
-    # TEMPORARY — allow all origins for local development and live demo
-    _cors_origins = ["*"]
-    _cors_credentials = False  # must be False when allow_origins=["*"]
+    # Restricted mode: only allow the specific vercel origin
+    _cors_origins = ["https://your-actual-vercel-url.vercel.app"]
+    _cors_credentials = True
 
 app.add_middleware(
     CORSMiddleware,
