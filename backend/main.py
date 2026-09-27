@@ -236,7 +236,7 @@ RULES (strictly enforced)
     - "character_id" (An array of exactly 5 uppercase strings representing the grade you chose)
     - "ai_explanation" (your plain English text on why it's chosen)
     - "trade_off_notes" (explicitly state what downside this choice has directly compared to the OTHER choices in this response).
-11. CRITICAL: If the USER NEED is completely unrelated to steel, metal, materials, or structural engineering (e.g., asking about recipes, weather, politics, people), YOU MUST return an empty array for "recommendations" (i.e. {"recommendations": []}).
+11. CRITICAL: If the USER NEED is completely unrelated to steel, metal, materials, or structural engineering (e.g., asking about recipes, weather, politics, people), YOU MUST return an empty array for "recommendations" (i.e. {{"recommendations": []}}).
 
 GRADES DATASET
 --------------
