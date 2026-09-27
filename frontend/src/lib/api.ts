@@ -37,22 +37,24 @@ export async function analyzePrompt(prompt: string): Promise<AIAnalysisResult> {
   const enrichedPrompt = `I am looking for a stainless steel type from your database for the following application or keyword: ${prompt}. Please recommend the best options.`;
 
   try {
-    // Use the environment variable for the backend URL, fallback to localhost
-    const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+    const rawUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+    const API_URL = rawUrl.replace(/\/+$/, "");
     
     // Hit the real FastAPI backend endpoint
+    console.log(`Sending to: ${API_URL}/recommend`);
     const res = await fetch(`${API_URL}/recommend`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_need: enrichedPrompt }),
     });
     
+    console.log(`Response status: ${res.status}`);
     if (res.ok) {
       return await res.json();
     }
-    console.warn("Backend returned error, falling back to mock data");
+    console.error(`Backend returned HTTP ${res.status}, falling back to mock data`);
   } catch (error) {
-    console.warn("Backend unreachable, falling back to mock data:", error);
+    console.error("Backend completely unreachable, falling back to mock data:", error);
   }
 
   // MOCK FALLBACK for development if backend is offline
