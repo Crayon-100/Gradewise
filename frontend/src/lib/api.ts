@@ -37,8 +37,11 @@ export async function analyzePrompt(prompt: string): Promise<AIAnalysisResult> {
   const enrichedPrompt = `I am looking for a stainless steel type from your database for the following application or keyword: ${prompt}. Please recommend the best options.`;
 
   try {
+    // Use the environment variable for the backend URL, fallback to localhost
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    
     // Hit the real FastAPI backend endpoint
-    const res = await fetch("http://localhost:8000/recommend", {
+    const res = await fetch(`${API_URL}/recommend`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_need: enrichedPrompt }),
