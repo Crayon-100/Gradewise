@@ -58,14 +58,25 @@ _groq_client = Groq(api_key=GROQ_API_KEY)
 # FastAPI app
 # ---------------------------------------------------------------------------
 
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
 app = FastAPI(
     title="GradeWise API",
     description="Stainless Steel Grade Recommendation & Physics Calculation Engine",
     version="1.0.0",
 )
 
+# Crucial for Render: Trust the X-Forwarded-For header so we don't rate limit the Render Load Balancer
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+
 # Set up rate limiting
-limiter = Limiter(key_func=get_remote_address)
+def get_real_ip(request: Request):
+    # Fallback that explicitly checks headers if proxy middleware didn't catch it
+    if "x-forwarded-for" in request.headers:
+        return request.headers["x-forwarded-for"].split(",")[0].strip()
+    return request.client.host if request.client else "127.0.0.1"
+
+limiter = Limiter(key_func=get_real_ip)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -92,6 +103,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 _frontend_url = os.getenv("FRONTEND_URL")  # set this in Render environment vars
 
 if _frontend_url:
+    # Safely strip any accidental quotes, spaces, or trailing slashes from the Render env var
+    _frontend_url = _frontend_url.strip(" '\"").rstrip('/')
     # Restricted mode: only allow the configured frontend domain + local dev
     _cors_origins = [
         _frontend_url,
@@ -289,7 +302,7 @@ def health_check():
 
 
 @app.post("/recommend", response_model=RecommendResponse)
-@limiter.limit("5/minute")
+@limiter.limit("20/minute")
 def recommend(request: Request, req: RecommendRequest):
     """
     Main recommendation endpoint.
