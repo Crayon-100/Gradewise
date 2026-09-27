@@ -286,6 +286,7 @@ def health_check():
 
 
 @app.post("/recommend", response_model=RecommendResponse)
+@limiter.limit("20/minute")
 def recommend(request: Request, req: RecommendRequest):
     """
     Main recommendation endpoint.
