@@ -101,7 +101,7 @@ if _frontend_url:
     _cors_credentials = True
 else:
     # Restricted mode: only allow the specific vercel origin
-    _cors_origins = ["https://your-actual-vercel-url.vercel.app"]
+    _cors_origins = ["https://gradewise-two.vercel.app"]
     _cors_credentials = True
 
 app.add_middleware(
